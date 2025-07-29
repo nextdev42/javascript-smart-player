@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Advanced MP3 Player with Equalizer</title>
+  <title>Advanced MP3 Player</title>
   <style>
     :root {
       --primary-color: #1db954;
@@ -513,9 +513,9 @@
     let dataArray;
     let animationId;
     let visualizerBars = [];
-    let nextAudio = new Audio(); // For crossfade
+    let crossfadeAudio = new Audio();
     let isCrossfading = false;
-    let gainNodes = [];
+    let crossfadeTimeout;
     let eqFilters = [];
     
     // EQ frequencies (Hz)
@@ -662,6 +662,16 @@
         const percent = (audio.currentTime / audio.duration) * 100;
         progress.style.width = `${percent}%`;
         currentTimeEl.textContent = formatTime(audio.currentTime);
+        
+        // Check if we should start crossfade
+        if (!isCrossfading && parseInt(crossfadeSlider.value) > 0) {
+          const remainingTime = audio.duration - audio.currentTime;
+          const crossfadeTime = parseInt(crossfadeSlider.value);
+          
+          if (remainingTime <= crossfadeTime + 0.5) { // Add small buffer
+            playNext();
+          }
+        }
       }
     }
     
@@ -729,65 +739,96 @@
         playTrack(nextTrackIndex);
         return;
       }
-      
+
       isCrossfading = true;
       
-      // Setup next track
-      nextAudio.src = tracks[nextTrackIndex].url;
-      nextAudio.volume = 0;
-      nextAudio.currentTime = 0;
+      // Setup crossfade audio
+      crossfadeAudio.src = tracks[nextTrackIndex].url;
+      crossfadeAudio.volume = 0;
       
-      // Play next track
-      nextAudio.play().catch(e => console.error('Next track playback error:', e));
+      // Start playing the next track (muted)
+      crossfadeAudio.play().catch(e => console.error('Crossfade playback error:', e));
       
-      // Fade out current track and fade in next track
-      const fadeInterval = 50; // ms
-      const steps = crossfadeTime / fadeInterval;
+      // Calculate when to start the crossfade (before current track ends)
+      const remainingTime = audio.duration - audio.currentTime;
+      const startFadeAt = Math.max(0, remainingTime - (crossfadeTime / 1000));
+      
+      if (startFadeAt <= 0) {
+        // If we're at the end, just switch tracks
+        playTrack(nextTrackIndex);
+        isCrossfading = false;
+        return;
+      }
+
+      // Set up the fade to start at the right time
+      crossfadeTimeout = setTimeout(() => {
+        performCrossfade(nextTrackIndex, crossfadeTime);
+      }, startFadeAt * 1000);
+    }
+
+    function performCrossfade(nextTrackIndex, crossfadeTime) {
+      if (!isCrossfading) return;
+      
+      const fadeSteps = 20;
+      const stepTime = crossfadeTime / fadeSteps;
       let step = 0;
       
-      const fadeIntervalId = setInterval(() => {
+      const fadeInterval = setInterval(() => {
         step++;
-        const progress = step / steps;
+        const progress = step / fadeSteps;
         
         // Fade out current track
         audio.volume = Math.max(0, volumeSlider.value * (1 - progress));
         
         // Fade in next track
-        nextAudio.volume = Math.min(volumeSlider.value, volumeSlider.value * progress);
+        crossfadeAudio.volume = Math.min(volumeSlider.value, volumeSlider.value * progress);
         
-        if (step >= steps) {
-          clearInterval(fadeIntervalId);
-          
-          // Switch to next track
-          audio.pause();
-          audio.src = tracks[nextTrackIndex].url;
-          audio.currentTime = nextAudio.currentTime;
-          audio.volume = volumeSlider.value;
-          
-          if (isPlaying) {
-            audio.play().catch(e => console.error('Playback error:', e));
-          }
-          
-          currentTrackIndex = nextTrackIndex;
-          currentTrackEl.textContent = tracks[currentTrackIndex].name;
-          
-          // Update playlist highlight
-          Array.from(playlistEl.children).forEach((li, i) => {
-            if (i === currentTrackIndex) {
-              li.classList.add('playing');
-            } else {
-              li.classList.remove('playing');
-            }
-          });
-          
-          isCrossfading = false;
+        if (step >= fadeSteps) {
+          clearInterval(fadeInterval);
+          completeCrossfade(nextTrackIndex);
         }
-      }, fadeInterval);
+      }, stepTime);
     }
-    
+
+    function completeCrossfade(nextTrackIndex) {
+      // Pause and clean up the current audio
+      audio.pause();
+      
+      // Switch to the new track
+      audio.src = crossfadeAudio.src;
+      audio.currentTime = crossfadeAudio.currentTime;
+      audio.volume = volumeSlider.value;
+      
+      if (isPlaying) {
+        audio.play().catch(e => console.error('Playback error:', e));
+      }
+      
+      // Update track information
+      currentTrackIndex = nextTrackIndex;
+      currentTrackEl.textContent = tracks[currentTrackIndex].name;
+      
+      // Update playlist highlight
+      Array.from(playlistEl.children).forEach((li, i) => {
+        li.classList.toggle('playing', i === currentTrackIndex);
+      });
+      
+      // Reset crossfade state
+      isCrossfading = false;
+      crossfadeAudio.volume = 0;
+      crossfadeAudio.pause();
+      clearTimeout(crossfadeTimeout);
+    }
+
     // Play track by index
     function playTrack(index) {
       if (index < 0 || index >= tracks.length) return;
+      
+      // Cancel any ongoing crossfade
+      if (isCrossfading) {
+        clearTimeout(crossfadeTimeout);
+        crossfadeAudio.pause();
+        isCrossfading = false;
+      }
       
       currentTrackIndex = index;
       const track = tracks[index];
@@ -803,11 +844,7 @@
           
           // Highlight current track in playlist
           Array.from(playlistEl.children).forEach((li, i) => {
-            if (i === index) {
-              li.classList.add('playing');
-            } else {
-              li.classList.remove('playing');
-            }
+            li.classList.toggle('playing', i === index);
           });
           
           // Setup audio analyzer if not already done
@@ -821,7 +858,7 @@
           console.error('Playback failed:', error);
         });
     }
-    
+
     // Play next track
     function playNext() {
       if (tracks.length === 0) return;
@@ -833,7 +870,7 @@
         playTrack(nextIndex);
       }
     }
-    
+
     // Play previous track
     function playPrev() {
       if (tracks.length === 0) return;
@@ -907,8 +944,8 @@
     
     volumeSlider.addEventListener('input', () => {
       audio.volume = volumeSlider.value;
-      if (!nextAudio.paused) {
-        nextAudio.volume = volumeSlider.value;
+      if (!crossfadeAudio.paused) {
+        crossfadeAudio.volume = volumeSlider.value;
       }
     });
     
