@@ -3,97 +3,61 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>NextDev MP3 Player</title>
+  <title>MP3 Player with Equalizer and Chatbot</title>
   <style>
-    body {
-      font-family: sans-serif;
-      background: #222;
-      color: #fff;
-      text-align: center;
-      padding: 20px;
-    }
-    .player {
-      margin-top: 20px;
-    }
-    #playlist li {
-      cursor: pointer;
-      margin: 5px;
-      color: #00f0ff;
-    }
-    .controls, .equalizer, .chatbot {
-      margin: 20px 0;
-    }
-    input[type="range"] {
-      width: 100px;
-    }
-    .theme-light {
-      background: #f0f0f0;
-      color: #111;
-    }
+    body { font-family: Arial, sans-serif; margin: 0; padding: 0; background: #111; color: white; }
+    header, footer { padding: 10px; background: #222; text-align: center; }
+    #player-container { display: flex; flex-direction: column; align-items: center; padding: 20px; }
+    #playlist { list-style: none; padding: 0; margin-top: 10px; width: 90%; max-width: 500px; }
+    #playlist li { padding: 10px; border-bottom: 1px solid #444; cursor: pointer; }
+    #playlist li:hover { background: #333; }
+    #controls { display: flex; gap: 10px; margin-top: 15px; }
+    #chatbot { position: fixed; bottom: 10px; right: 10px; width: 300px; height: 300px; border: 1px solid #444; background: #000; color: #0f0; padding: 10px; overflow-y: auto; }
+    #chat-input { width: 100%; }
+    #drop-zone { border: 2px dashed #666; padding: 20px; margin: 20px auto; width: 90%; max-width: 500px; text-align: center; color: #aaa; }
+    #drop-zone.dragover { border-color: #0f0; color: #0f0; }
   </style>
 </head>
 <body>
-  <h1>🎧 NextDev MP3 Player</h1>
-
-  <div class="player">
-    <audio id="player" controls></audio>
+  <header><h1>🎧 MP3 Player</h1></header>
+  <div id="player-container">
+    <div id="drop-zone">Drag & drop MP3 files here or click to select</div>
+    <input type="file" id="file-input" accept="audio/mpeg" multiple style="display:none;">
+    <audio id="player" controls style="width: 90%; max-width: 500px;"></audio>
+    <div id="controls">
+      <button id="playPauseBtn">▶️</button>
+      <input type="range" id="volume" min="0" max="1" step="0.01" value="1" />
+      <label for="crossfade">Crossfade:</label>
+      <input type="range" id="crossfade" min="0" max="30" step="1" value="5" />
+    </div>
+    <ul id="playlist"></ul>
   </div>
-
-  <ul id="playlist">
-    <li data-src="song1.mp3">Track 1 - Relaxing Beats</li>
-    <li data-src="song2.mp3">Track 2 - Energize</li>
-    <li data-src="song3.mp3">Track 3 - Chill Vibes</li>
-  </ul>
-
-  <div class="controls">
-    <button id="playPauseBtn">▶️</button>
-    <button onclick="stopAudio()">⏹️</button>
-    <label>Volume: <input type="range" id="volume" min="0" max="1" step="0.01"></label>
+  <div id="chatbot">
+    <div id="chat-log"></div>
+    <input type="text" id="chat-input" placeholder="Ask me about music..." />
   </div>
-
-  <div class="equalizer">
-    <h3>Equalizer</h3>
-    <label>Bass <input type="range" id="bass" min="-30" max="30"></label>
-    <label>Mid <input type="range" id="mid" min="-30" max="30"></label>
-    <label>Treble <input type="range" id="treble" min="-30" max="30"></label>
-    <br>
-    <label>Crossfade (sec): <input type="range" id="crossfade" min="0" max="30" value="0"></label>
-  </div>
-
-  <div class="chatbot">
-    <h3>🎤 Ask Me Something</h3>
-    <input type="text" id="chatInput" placeholder="E.g., play a relaxing song">
-    <button onclick="handleChat()">Send</button>
-    <p id="chatResponse"></p>
-  </div>
-
-  <button onclick="toggleTheme()">🌓 Toggle Theme</button>
+  <footer><p>🎵 Built with ❤️</p></footer>
 
   <script>
     const audio = document.getElementById('player');
     const playPauseBtn = document.getElementById('playPauseBtn');
-    const playlist = document.getElementById('playlist');
     const volumeSlider = document.getElementById('volume');
-    const chatResponse = document.getElementById('chatResponse');
+    const playlistEl = document.getElementById('playlist');
+    const crossfadeSlider = document.getElementById('crossfade');
+    const dropZone = document.getElementById('drop-zone');
+    const fileInput = document.getElementById('file-input');
     let currentTrack = null;
     let isPlaying = false;
+    let tracks = [];
 
-    const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-    const source = audioContext.createMediaElementSource(audio);
-    const bassEQ = audioContext.createBiquadFilter();
-    bassEQ.type = "lowshelf";
-    bassEQ.frequency.value = 100;
-    const midEQ = audioContext.createBiquadFilter();
-    midEQ.type = "peaking";
-    midEQ.frequency.value = 1000;
-    const trebleEQ = audioContext.createBiquadFilter();
-    trebleEQ.type = "highshelf";
-    trebleEQ.frequency.value = 3000;
-    source.connect(bassEQ).connect(midEQ).connect(trebleEQ).connect(audioContext.destination);
-
-    document.getElementById("bass").oninput = (e) => bassEQ.gain.value = e.target.value;
-    document.getElementById("mid").oninput = (e) => midEQ.gain.value = e.target.value;
-    document.getElementById("treble").oninput = (e) => trebleEQ.gain.value = e.target.value;
+    function addToPlaylist(file) {
+      const url = URL.createObjectURL(file);
+      tracks.push({ name: file.name, url });
+      const li = document.createElement('li');
+      li.textContent = file.name;
+      li.dataset.src = url;
+      playlistEl.appendChild(li);
+    }
 
     playPauseBtn.addEventListener('click', () => {
       if (!currentTrack) return;
@@ -108,71 +72,70 @@
       }
     });
 
-    playlist.addEventListener('click', (e) => {
+    playlistEl.addEventListener('click', e => {
       if (e.target.tagName === 'LI') {
         const src = e.target.dataset.src;
         if (src !== currentTrack) {
-          fadeOut(() => {
-            audio.src = src;
-            currentTrack = src;
+          audio.src = src;
+          currentTrack = src;
+          audio.play();
+          isPlaying = true;
+          playPauseBtn.textContent = '⏸️';
+        } else {
+          if (isPlaying) {
+            audio.pause();
+            isPlaying = false;
+            playPauseBtn.textContent = '▶️';
+          } else {
             audio.play();
             isPlaying = true;
             playPauseBtn.textContent = '⏸️';
-          });
-        } else {
-          audio.paused ? audio.play() : audio.pause();
+          }
         }
       }
     });
 
-    volumeSlider.addEventListener('input', (e) => {
-      audio.volume = e.target.value;
+    volumeSlider.addEventListener('input', () => {
+      audio.volume = volumeSlider.value;
     });
 
-    function stopAudio() {
-      audio.pause();
-      audio.currentTime = 0;
-      isPlaying = false;
-      playPauseBtn.textContent = '▶️';
-    }
+    dropZone.addEventListener('click', () => fileInput.click());
+    dropZone.addEventListener('dragover', e => {
+      e.preventDefault();
+      dropZone.classList.add('dragover');
+    });
+    dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+    dropZone.addEventListener('drop', e => {
+      e.preventDefault();
+      dropZone.classList.remove('dragover');
+      [...e.dataTransfer.files].forEach(file => {
+        if (file.type === 'audio/mpeg') addToPlaylist(file);
+      });
+    });
+    fileInput.addEventListener('change', e => {
+      [...e.target.files].forEach(file => {
+        if (file.type === 'audio/mpeg') addToPlaylist(file);
+      });
+    });
 
-    function fadeOut(callback) {
-      const fadeTime = parseFloat(document.getElementById('crossfade').value);
-      if (!fadeTime) return callback();
-      const initialVol = audio.volume;
-      let t = fadeTime;
-      const interval = setInterval(() => {
-        if (t <= 0) {
-          clearInterval(interval);
-          callback();
-          audio.volume = initialVol;
-        } else {
-          audio.volume = (t / fadeTime) * initialVol;
-          t -= 0.1;
-        }
-      }, 100);
-    }
-
-    function handleChat() {
-      const input = document.getElementById('chatInput').value.toLowerCase();
-      let response = '🤖 Sorry, I didn\'t understand that.';
-      if (input.includes('play') && input.includes('relax')) {
-        document.querySelector('[data-src="song1.mp3"]').click();
-        response = '🎶 Playing a relaxing track for you.';
-      } else if (input.includes('what') && input.includes('playing')) {
-        response = currentTrack ? `🎵 Currently playing: ${currentTrack}` : 'Nothing is playing.';
-      } else if (input.includes('increase volume')) {
-        audio.volume = Math.min(1, audio.volume + 0.1);
-        response = '🔊 Volume increased.';
-      } else if (input.includes('dr dre')) {
-        response = '🎤 "Rat Tat Tat" by Dr. Dre was composed by Dr. Dre, Snoop Dogg, and Sam Sneed.';
+    // Chatbot (offline example)
+    const chatLog = document.getElementById('chat-log');
+    const chatInput = document.getElementById('chat-input');
+    chatInput.addEventListener('keypress', e => {
+      if (e.key === 'Enter') {
+        const msg = chatInput.value.trim();
+        if (!msg) return;
+        chatLog.innerHTML += `<div>> ${msg}</div>`;
+        let reply = 'Sorry, I don\'t understand.';
+        if (msg.includes('relaxing')) reply = 'Try "Lo-fi Chill Beats"!';
+        else if (msg.includes('volume')) reply = 'Use the slider to adjust volume.';
+        else if (msg.includes('what\'s playing')) reply = currentTrack ? currentTrack : 'Nothing playing.';
+        else if (msg.toLowerCase().includes('dr dre')) reply = 'Dr. Dre wrote and produced "Rat-Tat-Tat-Tat" with RBX.';
+        chatLog.innerHTML += `<div><em>${reply}</em></div>`;
+        chatInput.value = '';
+        chatLog.scrollTop = chatLog.scrollHeight;
       }
-      chatResponse.textContent = response;
-    }
-
-    function toggleTheme() {
-      document.body.classList.toggle('theme-light');
-    }
+    });
   </script>
 </body>
 </html>
