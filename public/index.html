@@ -3,102 +3,689 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>MP3 Player with Equalizer and Chatbot</title>
+  <title>Advanced MP3 Player with Equalizer</title>
   <style>
-    body { font-family: Arial, sans-serif; margin: 0; padding: 0; background: #111; color: white; }
-    header, footer { padding: 10px; background: #222; text-align: center; }
-    #player-container { display: flex; flex-direction: column; align-items: center; padding: 20px; }
-    #playlist { list-style: none; padding: 0; margin-top: 10px; width: 90%; max-width: 500px; }
-    #playlist li { padding: 10px; border-bottom: 1px solid #444; cursor: pointer; }
-    #playlist li:hover { background: #333; }
-    #controls { display: flex; gap: 10px; margin-top: 15px; }
-    #chatbot { position: fixed; bottom: 10px; right: 10px; width: 300px; height: 300px; border: 1px solid #444; background: #000; color: #0f0; padding: 10px; overflow-y: auto; }
-    #chat-input { width: 100%; }
-    #drop-zone { border: 2px dashed #666; padding: 20px; margin: 20px auto; width: 90%; max-width: 500px; text-align: center; color: #aaa; }
-    #drop-zone.dragover { border-color: #0f0; color: #0f0; }
+    :root {
+      --primary-color: #1db954;
+      --secondary-color: #191414;
+      --text-color: #ffffff;
+      --bg-color: #121212;
+      --card-bg: #181818;
+      --border-color: #282828;
+    }
+    
+    body { 
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+      margin: 0; 
+      padding: 0; 
+      background: var(--bg-color); 
+      color: var(--text-color); 
+      min-height: 100vh;
+    }
+    
+    header, footer { 
+      padding: 15px; 
+      background: var(--secondary-color); 
+      text-align: center; 
+      box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+    }
+    
+    header h1 {
+      margin: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+    }
+    
+    #player-container { 
+      display: flex; 
+      flex-direction: column; 
+      align-items: center; 
+      padding: 20px; 
+      max-width: 800px;
+      margin: 0 auto;
+    }
+    
+    .player-card {
+      background: var(--card-bg);
+      border-radius: 10px;
+      padding: 20px;
+      width: 100%;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+      margin-bottom: 20px;
+    }
+    
+    #playlist { 
+      list-style: none; 
+      padding: 0; 
+      margin: 0;
+      width: 100%;
+      max-height: 300px;
+      overflow-y: auto;
+      border-radius: 5px;
+      background: var(--card-bg);
+    }
+    
+    #playlist li { 
+      padding: 12px 15px; 
+      border-bottom: 1px solid var(--border-color); 
+      cursor: pointer; 
+      transition: all 0.2s;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    
+    #playlist li:hover { 
+      background: #282828; 
+    }
+    
+    #playlist li.playing { 
+      background: #2a2a2a;
+      color: var(--primary-color);
+      font-weight: bold;
+    }
+    
+    #playlist li .duration {
+      font-size: 0.8em;
+      color: #b3b3b3;
+    }
+    
+    #controls { 
+      display: flex; 
+      flex-wrap: wrap;
+      gap: 15px; 
+      margin: 20px 0;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+    }
+    
+    .control-group {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 5px;
+    }
+    
+    .control-group label {
+      font-size: 0.9em;
+      color: #b3b3b3;
+    }
+    
+    button {
+      background: var(--primary-color);
+      color: white;
+      border: none;
+      border-radius: 50%;
+      width: 50px;
+      height: 50px;
+      font-size: 18px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: transform 0.2s, background 0.2s;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+    }
+    
+    button:hover {
+      transform: scale(1.05);
+      background: #1ed760;
+    }
+    
+    button:active {
+      transform: scale(0.98);
+    }
+    
+    button.secondary {
+      background: #535353;
+      width: 40px;
+      height: 40px;
+      font-size: 16px;
+    }
+    
+    button.secondary:hover {
+      background: #666;
+    }
+    
+    input[type="range"] {
+      -webkit-appearance: none;
+      width: 100%;
+      height: 6px;
+      background: #535353;
+      border-radius: 3px;
+      outline: none;
+    }
+    
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 16px;
+      height: 16px;
+      background: var(--primary-color);
+      border-radius: 50%;
+      cursor: pointer;
+    }
+    
+    #progress-container {
+      width: 100%;
+      margin: 15px 0;
+    }
+    
+    #progress-bar {
+      width: 100%;
+      height: 4px;
+      background: #535353;
+      border-radius: 2px;
+      cursor: pointer;
+      position: relative;
+    }
+    
+    #progress {
+      height: 100%;
+      background: var(--primary-color);
+      border-radius: 2px;
+      width: 0%;
+    }
+    
+    #time-display {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.8em;
+      color: #b3b3b3;
+      margin-top: 5px;
+    }
+    
+    #drop-zone { 
+      border: 2px dashed #666; 
+      padding: 30px; 
+      margin: 20px auto; 
+      width: 90%; 
+      text-align: center; 
+      color: #aaa;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: all 0.3s;
+      background: rgba(30, 30, 30, 0.5);
+    }
+    
+    #drop-zone.dragover { 
+      border-color: var(--primary-color); 
+      color: var(--primary-color);
+      background: rgba(29, 185, 84, 0.1);
+    }
+    
+    #drop-zone:hover {
+      background: rgba(40, 40, 40, 0.5);
+    }
+    
+    #now-playing {
+      margin: 15px 0;
+      text-align: center;
+      font-size: 1.1em;
+      min-height: 1.5em;
+    }
+    
+    #now-playing .title {
+      font-weight: bold;
+      color: var(--primary-color);
+    }
+    
+    #equalizer {
+      display: flex;
+      justify-content: center;
+      gap: 5px;
+      height: 120px;
+      margin: 20px 0;
+      align-items: flex-end;
+    }
+    
+    .eq-band {
+      width: 30px;
+      background: linear-gradient(to top, var(--primary-color), #4dff91);
+      border-radius: 3px 3px 0 0;
+      position: relative;
+      transition: height 0.1s;
+    }
+    
+    .eq-band::after {
+      content: attr(data-freq);
+      position: absolute;
+      bottom: -20px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 0.7em;
+      color: #b3b3b3;
+    }
+    
+    #chatbot-container {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      width: 300px;
+      transition: all 0.3s;
+      z-index: 100;
+    }
+    
+    #chatbot-container.collapsed {
+      height: 40px;
+      overflow: hidden;
+    }
+    
+    #chatbot-header {
+      background: var(--secondary-color);
+      padding: 10px;
+      border-radius: 10px 10px 0 0;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      cursor: pointer;
+    }
+    
+    #chatbot {
+      height: 300px;
+      border: 1px solid var(--border-color);
+      background: #000;
+      color: #0f0;
+      padding: 10px;
+      overflow-y: auto;
+      border-radius: 0 0 10px 10px;
+      font-family: 'Courier New', monospace;
+      font-size: 0.9em;
+    }
+    
+    #chat-input {
+      width: 100%;
+      padding: 8px;
+      background: #111;
+      border: 1px solid #333;
+      color: #0f0;
+      margin-top: 5px;
+      font-family: 'Courier New', monospace;
+    }
+    
+    #chat-input:focus {
+      outline: 1px solid var(--primary-color);
+    }
+    
+    .chat-message {
+      margin-bottom: 10px;
+      line-height: 1.4;
+    }
+    
+    .user-message {
+      color: #0ff;
+    }
+    
+    .bot-message {
+      color: #0f0;
+    }
+    
+    #visualizer {
+      width: 100%;
+      height: 100px;
+      background: #000;
+      border-radius: 5px;
+      margin: 15px 0;
+      position: relative;
+      overflow: hidden;
+    }
+    
+    .visualizer-bar {
+      position: absolute;
+      bottom: 0;
+      width: 3px;
+      background: var(--primary-color);
+      transition: height 0.05s;
+    }
+    
+    @media (max-width: 768px) {
+      #player-container {
+        padding: 10px;
+      }
+      
+      #chatbot-container {
+        width: calc(100% - 40px);
+        right: 20px;
+        left: 20px;
+      }
+      
+      .player-card {
+        padding: 15px;
+      }
+    }
   </style>
 </head>
 <body>
-  <header><h1>🎧 MP3 Player</h1></header>
+  <header><h1><span style="color: #1db954">🎧</span> Advanced MP3 Player</h1></header>
+  
   <div id="player-container">
-    <div id="drop-zone">Drag & drop MP3 files here or click to select</div>
-    <input type="file" id="file-input" accept="audio/mpeg" multiple style="display:none;">
-    <audio id="player" controls style="width: 90%; max-width: 500px;"></audio>
-    <div id="controls">
-      <button id="playPauseBtn">▶️</button>
-      <input type="range" id="volume" min="0" max="1" step="0.01" value="1" />
-      <label for="crossfade">Crossfade:</label>
-      <input type="range" id="crossfade" min="0" max="30" step="1" value="5" />
+    <div class="player-card">
+      <div id="drop-zone">
+        <p>Drag & drop MP3 files here or click to select</p>
+        <p><small>Supports MP3, OGG, WAV files</small></p>
+      </div>
+      <input type="file" id="file-input" accept="audio/*" multiple style="display:none;">
+      
+      <div id="now-playing">
+        <span class="title" id="current-track">No track selected</span>
+        <span id="current-artist"></span>
+      </div>
+      
+      <div id="visualizer"></div>
+      
+      <div id="progress-container">
+        <div id="progress-bar" title="Click to seek">
+          <div id="progress"></div>
+        </div>
+        <div id="time-display">
+          <span id="current-time">0:00</span>
+          <span id="total-time">0:00</span>
+        </div>
+      </div>
+      
+      <div id="controls">
+        <button id="prevBtn" class="secondary" title="Previous">⏮</button>
+        <button id="playPauseBtn" title="Play/Pause">▶️</button>
+        <button id="nextBtn" class="secondary" title="Next">⏭</button>
+        
+        <div class="control-group">
+          <label for="volume">Volume</label>
+          <input type="range" id="volume" min="0" max="1" step="0.01" value="0.7" />
+        </div>
+        
+        <div class="control-group">
+          <label for="crossfade">Crossfade (s)</label>
+          <input type="range" id="crossfade" min="0" max="10" step="1" value="3" />
+        </div>
+      </div>
+      
+      <div id="equalizer">
+        <div class="eq-band" data-freq="60Hz" style="height: 20%;"></div>
+        <div class="eq-band" data-freq="150Hz" style="height: 40%;"></div>
+        <div class="eq-band" data-freq="400Hz" style="height: 60%;"></div>
+        <div class="eq-band" data-freq="1kHz" style="height: 80%;"></div>
+        <div class="eq-band" data-freq="2.4kHz" style="height: 60%;"></div>
+        <div class="eq-band" data-freq="6kHz" style="height: 40%;"></div>
+        <div class="eq-band" data-freq="15kHz" style="height: 20%;"></div>
+      </div>
+      
+      <h3>Playlist</h3>
+      <ul id="playlist"></ul>
     </div>
-    <ul id="playlist"></ul>
   </div>
-  <div id="chatbot">
-    <div id="chat-log"></div>
-    <input type="text" id="chat-input" placeholder="Ask me about music..." />
+  
+  <div id="chatbot-container" class="collapsed">
+    <div id="chatbot-header">
+      <span>Music Assistant</span>
+      <button id="toggle-chatbot" class="secondary" style="width:30px;height:30px;">▼</button>
+    </div>
+    <div id="chatbot">
+      <div class="chat-message bot-message">Hello! I'm your music assistant. Ask me about the player or your music.</div>
+    </div>
+    <input type="text" id="chat-input" placeholder="Type your question..." />
   </div>
-  <footer><p>🎵 Built with ❤️</p></footer>
+  
+  <footer><p>🎵 Built with ❤️ and JavaScript</p></footer>
 
   <script>
-    const audio = document.getElementById('player');
+    // DOM Elements
+    const audio = new Audio();
     const playPauseBtn = document.getElementById('playPauseBtn');
     const volumeSlider = document.getElementById('volume');
     const playlistEl = document.getElementById('playlist');
     const crossfadeSlider = document.getElementById('crossfade');
     const dropZone = document.getElementById('drop-zone');
     const fileInput = document.getElementById('file-input');
-    let currentTrack = null;
+    const progressBar = document.getElementById('progress-bar');
+    const progress = document.getElementById('progress');
+    const currentTimeEl = document.getElementById('current-time');
+    const totalTimeEl = document.getElementById('total-time');
+    const currentTrackEl = document.getElementById('current-track');
+    const prevBtn = document.getElementById('prevBtn');
+    const nextBtn = document.getElementById('nextBtn');
+    const visualizer = document.getElementById('visualizer');
+    const eqBands = document.querySelectorAll('.eq-band');
+    const toggleChatbotBtn = document.getElementById('toggle-chatbot');
+    const chatbotContainer = document.getElementById('chatbot-container');
+    const chatbot = document.getElementById('chatbot');
+    const chatInput = document.getElementById('chat-input');
+    
+    // Player state
+    let currentTrackIndex = -1;
     let isPlaying = false;
     let tracks = [];
-
+    let audioContext;
+    let analyser;
+    let dataArray;
+    let animationId;
+    let visualizerBars = [];
+    
+    // Initialize visualizer bars
+    function initVisualizer() {
+      visualizer.innerHTML = '';
+      visualizerBars = [];
+      const barCount = 64;
+      const barWidth = visualizer.offsetWidth / barCount;
+      
+      for (let i = 0; i < barCount; i++) {
+        const bar = document.createElement('div');
+        bar.className = 'visualizer-bar';
+        bar.style.left = `${i * barWidth}px`;
+        bar.style.height = '1px';
+        visualizer.appendChild(bar);
+        visualizerBars.push(bar);
+      }
+    }
+    
+    // Setup audio analyzer
+    function setupAudioAnalyzer() {
+      if (!audioContext) {
+        audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        analyser = audioContext.createAnalyser();
+        analyser.fftSize = 256;
+        
+        const source = audioContext.createMediaElementSource(audio);
+        source.connect(analyser);
+        analyser.connect(audioContext.destination);
+        
+        dataArray = new Uint8Array(analyser.frequencyBinCount);
+      }
+    }
+    
+    // Update visualizer
+    function updateVisualizer() {
+      if (!analyser) return;
+      
+      analyser.getByteFrequencyData(dataArray);
+      
+      for (let i = 0; i < visualizerBars.length; i++) {
+        const value = dataArray[i % dataArray.length] / 255;
+        const height = value * visualizer.offsetHeight * 0.9;
+        visualizerBars[i].style.height = `${height}px`;
+        visualizerBars[i].style.backgroundColor = `hsl(${value * 120 + 100}, 100%, 50%)`;
+      }
+      
+      // Update EQ bands
+      const eqFrequencies = [0, 2, 5, 10, 15, 20, 25]; // Simplified frequency bands
+      eqBands.forEach((band, i) => {
+        const value = dataArray[eqFrequencies[i]] / 255;
+        const height = value * 100;
+        band.style.height = `${height}%`;
+      });
+      
+      animationId = requestAnimationFrame(updateVisualizer);
+    }
+    
+    // Format time (seconds to MM:SS)
+    function formatTime(seconds) {
+      const mins = Math.floor(seconds / 60);
+      const secs = Math.floor(seconds % 60);
+      return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+    }
+    
+    // Update progress bar
+    function updateProgress() {
+      if (audio.duration) {
+        const percent = (audio.currentTime / audio.duration) * 100;
+        progress.style.width = `${percent}%`;
+        currentTimeEl.textContent = formatTime(audio.currentTime);
+      }
+    }
+    
+    // Seek in audio
+    function seekAudio(e) {
+      const percent = e.offsetX / progressBar.offsetWidth;
+      audio.currentTime = percent * audio.duration;
+    }
+    
+    // Add track to playlist
     function addToPlaylist(file) {
       const url = URL.createObjectURL(file);
-      tracks.push({ name: file.name, url });
-      const li = document.createElement('li');
-      li.textContent = file.name;
-      li.dataset.src = url;
-      playlistEl.appendChild(li);
+      const track = { 
+        name: file.name.replace(/\.[^/.]+$/, ""), // Remove file extension
+        url,
+        duration: 0
+      };
+      
+      // Get duration
+      const tempAudio = new Audio();
+      tempAudio.src = url;
+      tempAudio.addEventListener('loadedmetadata', () => {
+        track.duration = tempAudio.duration;
+        updatePlaylistItem(tracks.length - 1);
+      });
+      
+      tracks.push(track);
+      updatePlaylistItem(tracks.length - 1);
+      
+      // If first track, play it
+      if (tracks.length === 1) {
+        playTrack(0);
+      }
     }
-
+    
+    // Update playlist item in DOM
+    function updatePlaylistItem(index) {
+      const track = tracks[index];
+      let li = playlistEl.children[index];
+      
+      if (!li) {
+        li = document.createElement('li');
+        playlistEl.appendChild(li);
+      }
+      
+      li.innerHTML = `
+        <span>${track.name}</span>
+        <span class="duration">${track.duration ? formatTime(track.duration) : '--:--'}</span>
+      `;
+      li.dataset.index = index;
+      
+      if (index === currentTrackIndex) {
+        li.classList.add('playing');
+      } else {
+        li.classList.remove('playing');
+      }
+    }
+    
+    // Play track by index
+    function playTrack(index) {
+      if (index < 0 || index >= tracks.length) return;
+      
+      currentTrackIndex = index;
+      const track = tracks[index];
+      
+      audio.src = track.url;
+      audio.currentTime = 0;
+      audio.play()
+        .then(() => {
+          isPlaying = true;
+          playPauseBtn.textContent = '⏸';
+          currentTrackEl.textContent = track.name;
+          
+          // Highlight current track in playlist
+          Array.from(playlistEl.children).forEach((li, i) => {
+            if (i === index) {
+              li.classList.add('playing');
+            } else {
+              li.classList.remove('playing');
+            }
+          });
+          
+          // Setup audio analyzer if not already done
+          setupAudioAnalyzer();
+          if (animationId) {
+            cancelAnimationFrame(animationId);
+          }
+          updateVisualizer();
+        })
+        .catch(error => {
+          console.error('Playback failed:', error);
+        });
+    }
+    
+    // Play next track
+    function playNext() {
+      if (tracks.length === 0) return;
+      const nextIndex = (currentTrackIndex + 1) % tracks.length;
+      playTrack(nextIndex);
+    }
+    
+    // Play previous track
+    function playPrev() {
+      if (tracks.length === 0) return;
+      const prevIndex = (currentTrackIndex - 1 + tracks.length) % tracks.length;
+      playTrack(prevIndex);
+    }
+    
+    // Event Listeners
     playPauseBtn.addEventListener('click', () => {
-      if (!currentTrack) return;
+      if (tracks.length === 0) return;
+      
       if (audio.paused) {
-        audio.play();
-        isPlaying = true;
-        playPauseBtn.textContent = '⏸️';
+        audio.play()
+          .then(() => {
+            isPlaying = true;
+            playPauseBtn.textContent = '⏸';
+            setupAudioAnalyzer();
+            if (animationId) {
+              cancelAnimationFrame(animationId);
+            }
+            updateVisualizer();
+          });
       } else {
         audio.pause();
         isPlaying = false;
         playPauseBtn.textContent = '▶️';
-      }
-    });
-
-    playlistEl.addEventListener('click', e => {
-      if (e.target.tagName === 'LI') {
-        const src = e.target.dataset.src;
-        if (src !== currentTrack) {
-          audio.src = src;
-          currentTrack = src;
-          audio.play();
-          isPlaying = true;
-          playPauseBtn.textContent = '⏸️';
-        } else {
-          if (isPlaying) {
-            audio.pause();
-            isPlaying = false;
-            playPauseBtn.textContent = '▶️';
-          } else {
-            audio.play();
-            isPlaying = true;
-            playPauseBtn.textContent = '⏸️';
-          }
+        if (animationId) {
+          cancelAnimationFrame(animationId);
         }
       }
     });
-
+    
+    playlistEl.addEventListener('click', e => {
+      const li = e.target.closest('li');
+      if (li) {
+        const index = parseInt(li.dataset.index);
+        if (index !== currentTrackIndex) {
+          playTrack(index);
+        } else if (audio.paused) {
+          audio.play();
+          isPlaying = true;
+          playPauseBtn.textContent = '⏸';
+        } else {
+          audio.pause();
+          isPlaying = false;
+          playPauseBtn.textContent = '▶️';
+        }
+      }
+    });
+    
     volumeSlider.addEventListener('input', () => {
       audio.volume = volumeSlider.value;
     });
-
+    
     dropZone.addEventListener('click', () => fileInput.click());
     dropZone.addEventListener('dragover', e => {
       e.preventDefault();
@@ -109,33 +696,98 @@
       e.preventDefault();
       dropZone.classList.remove('dragover');
       [...e.dataTransfer.files].forEach(file => {
-        if (file.type === 'audio/mpeg') addToPlaylist(file);
+        if (file.type.startsWith('audio/')) addToPlaylist(file);
       });
     });
+    
     fileInput.addEventListener('change', e => {
       [...e.target.files].forEach(file => {
-        if (file.type === 'audio/mpeg') addToPlaylist(file);
+        if (file.type.startsWith('audio/')) addToPlaylist(file);
       });
+      fileInput.value = ''; // Reset to allow selecting same files again
     });
-
-    // Chatbot (offline example)
-    const chatLog = document.getElementById('chat-log');
-    const chatInput = document.getElementById('chat-input');
+    
+    progressBar.addEventListener('click', seekAudio);
+    
+    audio.addEventListener('timeupdate', updateProgress);
+    audio.addEventListener('loadedmetadata', () => {
+      totalTimeEl.textContent = formatTime(audio.duration);
+    });
+    audio.addEventListener('ended', () => {
+      const crossfadeTime = parseInt(crossfadeSlider.value);
+      if (crossfadeTime > 0) {
+        setTimeout(playNext, crossfadeTime * 1000);
+      } else {
+        playNext();
+      }
+    });
+    
+    prevBtn.addEventListener('click', playPrev);
+    nextBtn.addEventListener('click', playNext);
+    
+    // Chatbot functionality
+    toggleChatbotBtn.addEventListener('click', () => {
+      chatbotContainer.classList.toggle('collapsed');
+      toggleChatbotBtn.textContent = chatbotContainer.classList.contains('collapsed') ? '▼' : '▲';
+    });
+    
     chatInput.addEventListener('keypress', e => {
       if (e.key === 'Enter') {
         const msg = chatInput.value.trim();
         if (!msg) return;
-        chatLog.innerHTML += `<div>> ${msg}</div>`;
-        let reply = 'Sorry, I don\'t understand.';
-        if (msg.includes('relaxing')) reply = 'Try "Lo-fi Chill Beats"!';
-        else if (msg.includes('volume')) reply = 'Use the slider to adjust volume.';
-        else if (msg.includes('what\'s playing')) reply = currentTrack ? currentTrack : 'Nothing playing.';
-        else if (msg.toLowerCase().includes('dr dre')) reply = 'Dr. Dre wrote and produced "Rat-Tat-Tat-Tat" with RBX.';
-        chatLog.innerHTML += `<div><em>${reply}</em></div>`;
+        
+        // Add user message
+        const userMsg = document.createElement('div');
+        userMsg.className = 'chat-message user-message';
+        userMsg.textContent = `> ${msg}`;
+        chatbot.appendChild(userMsg);
+        
+        // Process and add bot response
+        let reply = processChatMessage(msg);
+        const botMsg = document.createElement('div');
+        botMsg.className = 'chat-message bot-message';
+        botMsg.innerHTML = `<em>${reply}</em>`;
+        chatbot.appendChild(botMsg);
+        
         chatInput.value = '';
-        chatLog.scrollTop = chatLog.scrollHeight;
+        chatbot.scrollTop = chatbot.scrollHeight;
       }
     });
+    
+    // Process chatbot messages
+    function processChatMessage(msg) {
+      msg = msg.toLowerCase();
+      
+      if (msg.includes('help') || msg.includes('what can you do')) {
+        return 'I can help with: current song, playlist, volume, equalizer. Try asking "what\'s playing?" or "how many songs are loaded?"';
+      } else if (msg.includes('playing') || msg.includes('current') || msg.includes('now')) {
+        return currentTrackIndex >= 0 
+          ? `Now playing: ${tracks[currentTrackIndex].name} (${formatTime(audio.currentTime)}/${formatTime(audio.duration)})`
+          : 'No track is currently playing. Add some music first!';
+      } else if (msg.includes('how many') || msg.includes('count') || msg.includes('number')) {
+        return `There are ${tracks.length} tracks in your playlist.`;
+      } else if (msg.includes('volume') || msg.includes('loud')) {
+        return `Current volume is at ${Math.round(audio.volume * 100)}%. Use the slider to adjust.`;
+      } else if (msg.includes('next') || msg.includes('skip')) {
+        return 'Use the ⏭ button to skip to the next track.';
+      } else if (msg.includes('previous') || msg.includes('back')) {
+        return 'Use the ⏮ button to go back to the previous track.';
+      } else if (msg.includes('equalizer') || msg.includes('eq') || msg.includes('bass') || msg.includes('treble')) {
+        return 'The equalizer shows real-time frequency analysis. The bars represent different frequency ranges from bass (left) to treble (right).';
+      } else if (msg.includes('hello') || msg.includes('hi') || msg.includes('hey')) {
+        return 'Hello! How can I help with your music today?';
+      } else if (msg.includes('thank')) {
+        return 'You\'re welcome! Enjoy your music. 🎵';
+      } else {
+        return 'I\'m not sure I understand. Try asking about the current song, playlist, or player controls. Type "help" for suggestions.';
+      }
+    }
+    
+    // Initialize visualizer
+    initVisualizer();
+    
+    // Set initial volume
+    audio.volume = volumeSlider.value;
   </script>
 </body>
 </html>
