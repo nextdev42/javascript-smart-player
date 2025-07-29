@@ -1,208 +1,178 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>NextAmp Player with EQ + Crossfade</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NextDev MP3 Player</title>
   <style>
     body {
-      background: #121212; color: #fff;
       font-family: sans-serif;
+      background: #222;
+      color: #fff;
+      text-align: center;
       padding: 20px;
     }
-    h1 { text-align: center; }
-    .controls, .playlist, .eq, .crossfade {
-      max-width: 500px;
-      margin: 20px auto;
+    .player {
+      margin-top: 20px;
     }
-    .controls button, input[type=range] {
+    #playlist li {
+      cursor: pointer;
       margin: 5px;
+      color: #00f0ff;
     }
-    .volume, .eq input, .crossfade input {
-      width: 100%;
+    .controls, .equalizer, .chatbot {
+      margin: 20px 0;
     }
-    ul { list-style: none; padding: 0; }
-    li { padding: 5px; border-bottom: 1px solid #444; cursor: pointer; }
-    li:hover { background: #1e1e1e; }
+    input[type="range"] {
+      width: 100px;
+    }
+    .theme-light {
+      background: #f0f0f0;
+      color: #111;
+    }
   </style>
 </head>
 <body>
+  <h1>🎧 NextDev MP3 Player</h1>
 
-<h1>🎛 NextAmp Web MP3 Player</h1>
+  <div class="player">
+    <audio id="player" controls></audio>
+  </div>
 
-<div class="controls">
-  <input type="file" id="fileInput" multiple accept="audio/mp3"><br><br>
-  <button onclick="playSong()">▶ Play</button>
-  <button onclick="pauseSong()">⏸ Pause</button>
-  <button onclick="stopSong()">⏹ Stop</button><br>
-  <label>Volume</label>
-  <input type="range" min="0" max="1" step="0.01" id="volumeSlider" class="volume">
-</div>
+  <ul id="playlist">
+    <li data-src="song1.mp3">Track 1 - Relaxing Beats</li>
+    <li data-src="song2.mp3">Track 2 - Energize</li>
+    <li data-src="song3.mp3">Track 3 - Chill Vibes</li>
+  </ul>
 
-<div class="eq">
-  <h3>Equalizer</h3>
-  <label>Bass</label>
-  <input type="range" min="-30" max="30" value="0" id="bass"><br>
-  <label>Mid</label>
-  <input type="range" min="-30" max="30" value="0" id="mid"><br>
-  <label>Treble</label>
-  <input type="range" min="-30" max="30" value="0" id="treble"><br>
-</div>
+  <div class="controls">
+    <button id="playPauseBtn">▶️</button>
+    <button onclick="stopAudio()">⏹️</button>
+    <label>Volume: <input type="range" id="volume" min="0" max="1" step="0.01"></label>
+  </div>
 
-<div class="crossfade">
-  <h3>Crossfade</h3>
-  <label>Seconds: <span id="xf-label">5</span></label>
-  <input type="range" min="1" max="30" value="5" id="crossfadeSlider">
-</div>
+  <div class="equalizer">
+    <h3>Equalizer</h3>
+    <label>Bass <input type="range" id="bass" min="-30" max="30"></label>
+    <label>Mid <input type="range" id="mid" min="-30" max="30"></label>
+    <label>Treble <input type="range" id="treble" min="-30" max="30"></label>
+    <br>
+    <label>Crossfade (sec): <input type="range" id="crossfade" min="0" max="30" value="0"></label>
+  </div>
 
-<div class="playlist">
-  <h3>Playlist</h3>
-  <ul id="playlist"></ul>
-</div>
+  <div class="chatbot">
+    <h3>🎤 Ask Me Something</h3>
+    <input type="text" id="chatInput" placeholder="E.g., play a relaxing song">
+    <button onclick="handleChat()">Send</button>
+    <p id="chatResponse"></p>
+  </div>
 
-<script>
-  const fileInput = document.getElementById('fileInput');
-  const playlistUI = document.getElementById('playlist');
-  const volumeSlider = document.getElementById('volumeSlider');
-  const xfSlider = document.getElementById('crossfadeSlider');
-  const xfLabel = document.getElementById('xf-label');
+  <button onclick="toggleTheme()">🌓 Toggle Theme</button>
 
-  const bassControl = document.getElementById('bass');
-  const midControl = document.getElementById('mid');
-  const trebleControl = document.getElementById('treble');
+  <script>
+    const audio = document.getElementById('player');
+    const playPauseBtn = document.getElementById('playPauseBtn');
+    const playlist = document.getElementById('playlist');
+    const volumeSlider = document.getElementById('volume');
+    const chatResponse = document.getElementById('chatResponse');
+    let currentTrack = null;
+    let isPlaying = false;
 
-  let context = new (window.AudioContext || window.webkitAudioContext)();
-  let gainNode = context.createGain();
-  let sourceNode = null;
-  let files = [];
-  let currentSongIndex = 0;
-  let isPlaying = false;
-  let audioBuffer = null;
-  let fadeDuration = parseInt(xfSlider.value);
+    const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    const source = audioContext.createMediaElementSource(audio);
+    const bassEQ = audioContext.createBiquadFilter();
+    bassEQ.type = "lowshelf";
+    bassEQ.frequency.value = 100;
+    const midEQ = audioContext.createBiquadFilter();
+    midEQ.type = "peaking";
+    midEQ.frequency.value = 1000;
+    const trebleEQ = audioContext.createBiquadFilter();
+    trebleEQ.type = "highshelf";
+    trebleEQ.frequency.value = 3000;
+    source.connect(bassEQ).connect(midEQ).connect(trebleEQ).connect(audioContext.destination);
 
-  // EQ filters
-  const bassFilter = context.createBiquadFilter();
-  bassFilter.type = "lowshelf";
-  bassFilter.frequency.value = 250;
+    document.getElementById("bass").oninput = (e) => bassEQ.gain.value = e.target.value;
+    document.getElementById("mid").oninput = (e) => midEQ.gain.value = e.target.value;
+    document.getElementById("treble").oninput = (e) => trebleEQ.gain.value = e.target.value;
 
-  const midFilter = context.createBiquadFilter();
-  midFilter.type = "peaking";
-  midFilter.frequency.value = 1000;
-
-  const trebleFilter = context.createBiquadFilter();
-  trebleFilter.type = "highshelf";
-  trebleFilter.frequency.value = 4000;
-
-  // Connect filters
-  bassFilter.connect(midFilter);
-  midFilter.connect(trebleFilter);
-  trebleFilter.connect(gainNode);
-  gainNode.connect(context.destination);
-
-  fileInput.addEventListener('change', () => {
-    playlistUI.innerHTML = '';
-    files = Array.from(fileInput.files);
-    files.forEach((file, i) => {
-      const li = document.createElement('li');
-      li.textContent = file.name;
-      li.onclick = () => {
-        currentSongIndex = i;
-        stopSong();
-        playSong();
-      };
-      playlistUI.appendChild(li);
-    });
-  });
-
-  async function playSong() {
-    if (!files[currentSongIndex]) return;
-
-    const file = files[currentSongIndex];
-    const arrayBuffer = await file.arrayBuffer();
-    audioBuffer = await context.decodeAudioData(arrayBuffer);
-
-    sourceNode = context.createBufferSource();
-    sourceNode.buffer = audioBuffer;
-    sourceNode.connect(bassFilter);
-    sourceNode.start();
-
-    isPlaying = true;
-
-    const duration = audioBuffer.duration;
-    const crossfadeTime = parseFloat(xfSlider.value);
-
-    setTimeout(() => {
-      if (currentSongIndex + 1 < files.length) {
-        crossfadeToNext();
+    playPauseBtn.addEventListener('click', () => {
+      if (!currentTrack) return;
+      if (audio.paused) {
+        audio.play();
+        isPlaying = true;
+        playPauseBtn.textContent = '⏸️';
+      } else {
+        audio.pause();
+        isPlaying = false;
+        playPauseBtn.textContent = '▶️';
       }
-    }, (duration - crossfadeTime) * 1000);
-  }
+    });
 
-  function crossfadeToNext() {
-    const nextIndex = currentSongIndex + 1;
-    if (!files[nextIndex]) return;
+    playlist.addEventListener('click', (e) => {
+      if (e.target.tagName === 'LI') {
+        const src = e.target.dataset.src;
+        if (src !== currentTrack) {
+          fadeOut(() => {
+            audio.src = src;
+            currentTrack = src;
+            audio.play();
+            isPlaying = true;
+            playPauseBtn.textContent = '⏸️';
+          });
+        } else {
+          audio.paused ? audio.play() : audio.pause();
+        }
+      }
+    });
 
-    const nextFile = files[nextIndex];
-    currentSongIndex = nextIndex;
+    volumeSlider.addEventListener('input', (e) => {
+      audio.volume = e.target.value;
+    });
 
-    fileInput.disabled = true;
-
-    const oldSource = sourceNode;
-    playSong();
-
-    // fade out old
-    const now = context.currentTime;
-    const fade = parseFloat(xfSlider.value);
-    gainNode.gain.linearRampToValueAtTime(0, now + fade);
-    setTimeout(() => oldSource.stop(), fade * 1000);
-  }
-
-  function pauseSong() {
-    if (context.state === "running") {
-      context.suspend();
+    function stopAudio() {
+      audio.pause();
+      audio.currentTime = 0;
+      isPlaying = false;
+      playPauseBtn.textContent = '▶️';
     }
-  }
 
-  function stopSong() {
-    if (sourceNode) {
-      sourceNode.stop();
+    function fadeOut(callback) {
+      const fadeTime = parseFloat(document.getElementById('crossfade').value);
+      if (!fadeTime) return callback();
+      const initialVol = audio.volume;
+      let t = fadeTime;
+      const interval = setInterval(() => {
+        if (t <= 0) {
+          clearInterval(interval);
+          callback();
+          audio.volume = initialVol;
+        } else {
+          audio.volume = (t / fadeTime) * initialVol;
+          t -= 0.1;
+        }
+      }, 100);
     }
-    context.close();
-    context = new (window.AudioContext || window.webkitAudioContext)();
 
-    // reconnect EQ
-    gainNode = context.createGain();
-    sourceNode = null;
+    function handleChat() {
+      const input = document.getElementById('chatInput').value.toLowerCase();
+      let response = '🤖 Sorry, I didn\'t understand that.';
+      if (input.includes('play') && input.includes('relax')) {
+        document.querySelector('[data-src="song1.mp3"]').click();
+        response = '🎶 Playing a relaxing track for you.';
+      } else if (input.includes('what') && input.includes('playing')) {
+        response = currentTrack ? `🎵 Currently playing: ${currentTrack}` : 'Nothing is playing.';
+      } else if (input.includes('increase volume')) {
+        audio.volume = Math.min(1, audio.volume + 0.1);
+        response = '🔊 Volume increased.';
+      } else if (input.includes('dr dre')) {
+        response = '🎤 "Rat Tat Tat" by Dr. Dre was composed by Dr. Dre, Snoop Dogg, and Sam Sneed.';
+      }
+      chatResponse.textContent = response;
+    }
 
-    bassFilter.disconnect();
-    midFilter.disconnect();
-    trebleFilter.disconnect();
-
-    bassFilter.connect(midFilter);
-    midFilter.connect(trebleFilter);
-    trebleFilter.connect(gainNode);
-    gainNode.connect(context.destination);
-  }
-
-  volumeSlider.addEventListener('input', () => {
-    gainNode.gain.value = parseFloat(volumeSlider.value);
-  });
-
-  bassControl.addEventListener('input', () => {
-    bassFilter.gain.value = parseFloat(bassControl.value);
-  });
-
-  midControl.addEventListener('input', () => {
-    midFilter.gain.value = parseFloat(midControl.value);
-  });
-
-  trebleControl.addEventListener('input', () => {
-    trebleFilter.gain.value = parseFloat(trebleControl.value);
-  });
-
-  xfSlider.addEventListener('input', () => {
-    fadeDuration = parseInt(xfSlider.value);
-    xfLabel.textContent = fadeDuration;
-  });
-</script>
+    function toggleTheme() {
+      document.body.classList.toggle('theme-light');
+    }
+  </script>
 </body>
 </html>
