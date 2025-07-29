@@ -232,13 +232,46 @@
       color: var(--primary-color);
     }
     
+    #equalizer-container {
+      margin: 20px 0;
+      background: var(--card-bg);
+      padding: 15px;
+      border-radius: 8px;
+    }
+    
+    #equalizer-controls {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 10px;
+    }
+    
+    .eq-preset-btn {
+      background: #333;
+      border: none;
+      color: white;
+      padding: 5px 10px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 0.8em;
+    }
+    
+    .eq-preset-btn:hover {
+      background: #444;
+    }
+    
     #equalizer {
       display: flex;
       justify-content: center;
-      gap: 5px;
-      height: 120px;
-      margin: 20px 0;
+      gap: 10px;
+      height: 150px;
       align-items: flex-end;
+    }
+    
+    .eq-band-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 5px;
     }
     
     .eq-band {
@@ -249,14 +282,34 @@
       transition: height 0.1s;
     }
     
-    .eq-band::after {
-      content: attr(data-freq);
-      position: absolute;
-      bottom: -20px;
-      left: 50%;
-      transform: translateX(-50%);
+    .eq-band-label {
       font-size: 0.7em;
       color: #b3b3b3;
+    }
+    
+    .eq-gain {
+      width: 30px;
+      -webkit-appearance: slider-vertical;
+      writing-mode: bt-lr;
+      height: 80px;
+    }
+    
+    #visualizer {
+      width: 100%;
+      height: 100px;
+      background: #000;
+      border-radius: 5px;
+      margin: 15px 0;
+      position: relative;
+      overflow: hidden;
+    }
+    
+    .visualizer-bar {
+      position: absolute;
+      bottom: 0;
+      width: 3px;
+      background: var(--primary-color);
+      transition: height 0.05s;
     }
     
     #chatbot-container {
@@ -322,24 +375,6 @@
       color: #0f0;
     }
     
-    #visualizer {
-      width: 100%;
-      height: 100px;
-      background: #000;
-      border-radius: 5px;
-      margin: 15px 0;
-      position: relative;
-      overflow: hidden;
-    }
-    
-    .visualizer-bar {
-      position: absolute;
-      bottom: 0;
-      width: 3px;
-      background: var(--primary-color);
-      transition: height 0.05s;
-    }
-    
     @media (max-width: 768px) {
       #player-container {
         padding: 10px;
@@ -354,6 +389,18 @@
       .player-card {
         padding: 15px;
       }
+      
+      #equalizer {
+        gap: 5px;
+      }
+      
+      .eq-band {
+        width: 20px;
+      }
+      
+      .eq-gain {
+        width: 20px;
+      }
     }
   </style>
 </head>
@@ -363,7 +410,7 @@
   <div id="player-container">
     <div class="player-card">
       <div id="drop-zone">
-        <p>Drag & drop MP3 files here or click to select</p>
+        <p>Drag & drop audio files here or click to select</p>
         <p><small>Supports MP3, OGG, WAV files</small></p>
       </div>
       <input type="file" id="file-input" accept="audio/*" multiple style="display:none;">
@@ -401,14 +448,18 @@
         </div>
       </div>
       
-      <div id="equalizer">
-        <div class="eq-band" data-freq="60Hz" style="height: 20%;"></div>
-        <div class="eq-band" data-freq="150Hz" style="height: 40%;"></div>
-        <div class="eq-band" data-freq="400Hz" style="height: 60%;"></div>
-        <div class="eq-band" data-freq="1kHz" style="height: 80%;"></div>
-        <div class="eq-band" data-freq="2.4kHz" style="height: 60%;"></div>
-        <div class="eq-band" data-freq="6kHz" style="height: 40%;"></div>
-        <div class="eq-band" data-freq="15kHz" style="height: 20%;"></div>
+      <div id="equalizer-container">
+        <div id="equalizer-controls">
+          <span>Equalizer</span>
+          <div>
+            <button class="eq-preset-btn" data-preset="flat">Flat</button>
+            <button class="eq-preset-btn" data-preset="bass">Bass Boost</button>
+            <button class="eq-preset-btn" data-preset="treble">Treble Boost</button>
+          </div>
+        </div>
+        <div id="equalizer">
+          <!-- EQ bands will be added by JavaScript -->
+        </div>
       </div>
       
       <h3>Playlist</h3>
@@ -446,7 +497,8 @@
     const prevBtn = document.getElementById('prevBtn');
     const nextBtn = document.getElementById('nextBtn');
     const visualizer = document.getElementById('visualizer');
-    const eqBands = document.querySelectorAll('.eq-band');
+    const equalizerContainer = document.getElementById('equalizer');
+    const eqPresetBtns = document.querySelectorAll('.eq-preset-btn');
     const toggleChatbotBtn = document.getElementById('toggle-chatbot');
     const chatbotContainer = document.getElementById('chatbot-container');
     const chatbot = document.getElementById('chatbot');
@@ -461,6 +513,14 @@
     let dataArray;
     let animationId;
     let visualizerBars = [];
+    let nextAudio = new Audio(); // For crossfade
+    let isCrossfading = false;
+    let gainNodes = [];
+    let eqFilters = [];
+    let biquadFilters = [];
+    
+    // EQ frequencies (Hz)
+    const eqFrequencies = [60, 150, 400, 1000, 2400, 6000, 15000];
     
     // Initialize visualizer bars
     function initVisualizer() {
@@ -479,43 +539,124 @@
       }
     }
     
-    // Setup audio analyzer
-    function setupAudioAnalyzer() {
+    // Initialize equalizer
+    function initEqualizer() {
+      equalizerContainer.innerHTML = '';
+      
+      eqFrequencies.forEach((freq, i) => {
+        const bandContainer = document.createElement('div');
+        bandContainer.className = 'eq-band-container';
+        
+        const band = document.createElement('div');
+        band.className = 'eq-band';
+        band.style.height = '50%';
+        band.dataset.freq = freq;
+        
+        const label = document.createElement('div');
+        label.className = 'eq-band-label';
+        label.textContent = freq >= 1000 ? `${freq/1000}kHz` : `${freq}Hz`;
+        
+        const gainSlider = document.createElement('input');
+        gainSlider.type = 'range';
+        gainSlider.className = 'eq-gain';
+        gainSlider.min = '-12';
+        gainSlider.max = '12';
+        gainSlider.step = '1';
+        gainSlider.value = '0';
+        gainSlider.dataset.freq = freq;
+        gainSlider.dataset.index = i;
+        
+        bandContainer.appendChild(band);
+        bandContainer.appendChild(gainSlider);
+        bandContainer.appendChild(label);
+        equalizerContainer.appendChild(bandContainer);
+        
+        gainSlider.addEventListener('input', updateEQ);
+      });
+    }
+    
+    // Setup audio analyzer and EQ
+    function setupAudioNodes() {
       if (!audioContext) {
         audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        
+        // Create analyzer for visualization
         analyser = audioContext.createAnalyser();
         analyser.fftSize = 256;
         
+        // Create EQ nodes
         const source = audioContext.createMediaElementSource(audio);
-        source.connect(analyser);
+        
+        // Create gain nodes for each EQ band
+        gainNodes = [];
+        eqFilters = [];
+        
+        // Create a series of biquad filters for each frequency band
+        let lastNode = source;
+        
+        eqFrequencies.forEach(freq => {
+          const filter = audioContext.createBiquadFilter();
+          filter.type = "peaking";
+          filter.frequency.value = freq;
+          filter.Q.value = 1;
+          filter.gain.value = 0;
+          
+          const gainNode = audioContext.createGain();
+          gainNode.gain.value = 1;
+          
+          lastNode.connect(filter);
+          filter.connect(gainNode);
+          
+          eqFilters.push(filter);
+          gainNodes.push(gainNode);
+          lastNode = gainNode;
+        });
+        
+        // Connect the last node to analyzer and destination
+        lastNode.connect(analyser);
         analyser.connect(audioContext.destination);
         
         dataArray = new Uint8Array(analyser.frequencyBinCount);
       }
     }
     
-    // Update visualizer
-    function updateVisualizer() {
-      if (!analyser) return;
+    // Update EQ settings
+    function updateEQ() {
+      if (!audioContext) return;
       
-      analyser.getByteFrequencyData(dataArray);
+      const sliders = document.querySelectorAll('.eq-gain');
+      sliders.forEach((slider, i) => {
+        const gainValue = parseFloat(slider.value);
+        if (eqFilters[i]) {
+          eqFilters[i].gain.value = gainValue;
+        }
+        
+        // Update the visual band height
+        const band = slider.previousElementSibling;
+        if (band) {
+          // Map from -12 to +12 dB to 0% to 100% height
+          const heightPercent = ((gainValue + 12) / 24) * 100;
+          band.style.height = `${heightPercent}%`;
+        }
+      });
+    }
+    
+    // Apply EQ preset
+    function applyEQPreset(preset) {
+      const presets = {
+        flat: [0, 0, 0, 0, 0, 0, 0],
+        bass: [8, 6, 2, 0, -2, -4, -6],
+        treble: [-6, -4, -2, 0, 4, 8, 6]
+      };
       
-      for (let i = 0; i < visualizerBars.length; i++) {
-        const value = dataArray[i % dataArray.length] / 255;
-        const height = value * visualizer.offsetHeight * 0.9;
-        visualizerBars[i].style.height = `${height}px`;
-        visualizerBars[i].style.backgroundColor = `hsl(${value * 120 + 100}, 100%, 50%)`;
-      }
+      const gains = presets[preset] || presets.flat;
+      const sliders = document.querySelectorAll('.eq-gain');
       
-      // Update EQ bands
-      const eqFrequencies = [0, 2, 5, 10, 15, 20, 25]; // Simplified frequency bands
-      eqBands.forEach((band, i) => {
-        const value = dataArray[eqFrequencies[i]] / 255;
-        const height = value * 100;
-        band.style.height = `${height}%`;
+      sliders.forEach((slider, i) => {
+        slider.value = gains[i];
       });
       
-      animationId = requestAnimationFrame(updateVisualizer);
+      updateEQ();
     }
     
     // Format time (seconds to MM:SS)
@@ -589,6 +730,84 @@
       }
     }
     
+    // Crossfade between tracks
+    function startCrossfade(nextTrackIndex) {
+      if (isCrossfading) return;
+      
+      const crossfadeTime = parseInt(crossfadeSlider.value) * 1000;
+      if (crossfadeTime <= 0) {
+        playTrack(nextTrackIndex);
+        return;
+      }
+      
+      isCrossfading = true;
+      
+      // Setup next track
+      nextAudio.src = tracks[nextTrackIndex].url;
+      nextAudio.volume = 0;
+      nextAudio.currentTime = 0;
+      
+      // Create audio context for next track if needed
+      if (!audioContext) {
+        setupAudioNodes();
+      }
+      
+      const nextSource = audioContext.createMediaElementSource(nextAudio);
+      nextSource.connect(analyser);
+      analyser.connect(audioContext.destination);
+      
+      // Fade out current track and fade in next track
+      const fadeOutInterval = 50;
+      const steps = crossfadeTime / fadeOutInterval;
+      let step = 0;
+      
+      const fadeInterval = setInterval(() => {
+        step++;
+        const progress = step / steps;
+        
+        // Fade out current track
+        audio.volume = Math.max(0, volumeSlider.value * (1 - progress));
+        
+        // Fade in next track
+        nextAudio.volume = Math.min(volumeSlider.value, volumeSlider.value * progress);
+        
+        if (step >= steps) {
+          clearInterval(fadeInterval);
+          
+          // Play next track if not already playing
+          if (nextAudio.paused) {
+            nextAudio.play().catch(e => console.error('Playback error:', e));
+          }
+          
+          // Switch to next track
+          audio.pause();
+          audio.src = tracks[nextTrackIndex].url;
+          audio.currentTime = nextAudio.currentTime;
+          audio.volume = volumeSlider.value;
+          
+          if (isPlaying) {
+            audio.play().catch(e => console.error('Playback error:', e));
+          }
+          
+          currentTrackIndex = nextTrackIndex;
+          currentTrackEl.textContent = tracks[currentTrackIndex].name;
+          
+          // Update playlist highlight
+          Array.from(playlistEl.children).forEach((li, i) => {
+            if (i === currentTrackIndex) {
+              li.classList.add('playing');
+            } else {
+              li.classList.remove('playing');
+            }
+          });
+          
+          isCrossfading = false;
+        }
+      }, fadeOutInterval);
+      
+      nextAudio.play().catch(e => console.error('Playback error:', e));
+    }
+    
     // Play track by index
     function playTrack(index) {
       if (index < 0 || index >= tracks.length) return;
@@ -598,6 +817,7 @@
       
       audio.src = track.url;
       audio.currentTime = 0;
+      audio.volume = volumeSlider.value;
       audio.play()
         .then(() => {
           isPlaying = true;
@@ -614,7 +834,7 @@
           });
           
           // Setup audio analyzer if not already done
-          setupAudioAnalyzer();
+          setupAudioNodes();
           if (animationId) {
             cancelAnimationFrame(animationId);
           }
@@ -629,14 +849,40 @@
     function playNext() {
       if (tracks.length === 0) return;
       const nextIndex = (currentTrackIndex + 1) % tracks.length;
-      playTrack(nextIndex);
+      
+      if (parseInt(crossfadeSlider.value) > 0) {
+        startCrossfade(nextIndex);
+      } else {
+        playTrack(nextIndex);
+      }
     }
     
     // Play previous track
     function playPrev() {
       if (tracks.length === 0) return;
       const prevIndex = (currentTrackIndex - 1 + tracks.length) % tracks.length;
-      playTrack(prevIndex);
+      
+      if (parseInt(crossfadeSlider.value) > 0) {
+        startCrossfade(prevIndex);
+      } else {
+        playTrack(prevIndex);
+      }
+    }
+    
+    // Update visualizer
+    function updateVisualizer() {
+      if (!analyser) return;
+      
+      analyser.getByteFrequencyData(dataArray);
+      
+      for (let i = 0; i < visualizerBars.length; i++) {
+        const value = dataArray[i % dataArray.length] / 255;
+        const height = value * visualizer.offsetHeight * 0.9;
+        visualizerBars[i].style.height = `${height}px`;
+        visualizerBars[i].style.backgroundColor = `hsl(${value * 120 + 100}, 100%, 50%)`;
+      }
+      
+      animationId = requestAnimationFrame(updateVisualizer);
     }
     
     // Event Listeners
@@ -648,7 +894,7 @@
           .then(() => {
             isPlaying = true;
             playPauseBtn.textContent = '⏸';
-            setupAudioAnalyzer();
+            setupAudioNodes();
             if (animationId) {
               cancelAnimationFrame(animationId);
             }
@@ -684,6 +930,9 @@
     
     volumeSlider.addEventListener('input', () => {
       audio.volume = volumeSlider.value;
+      if (!nextAudio.paused) {
+        nextAudio.volume = volumeSlider.value;
+      }
     });
     
     dropZone.addEventListener('click', () => fileInput.click());
@@ -714,16 +963,24 @@
       totalTimeEl.textContent = formatTime(audio.duration);
     });
     audio.addEventListener('ended', () => {
-      const crossfadeTime = parseInt(crossfadeSlider.value);
-      if (crossfadeTime > 0) {
-        setTimeout(playNext, crossfadeTime * 1000);
-      } else {
-        playNext();
+      playNext();
+    });
+    
+    nextAudio.addEventListener('loadedmetadata', () => {
+      if (isCrossfading) {
+        totalTimeEl.textContent = formatTime(nextAudio.duration);
       }
     });
     
     prevBtn.addEventListener('click', playPrev);
     nextBtn.addEventListener('click', playNext);
+    
+    // EQ preset buttons
+    eqPresetBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        applyEQPreset(btn.dataset.preset);
+      });
+    });
     
     // Chatbot functionality
     toggleChatbotBtn.addEventListener('click', () => {
@@ -773,7 +1030,9 @@
       } else if (msg.includes('previous') || msg.includes('back')) {
         return 'Use the ⏮ button to go back to the previous track.';
       } else if (msg.includes('equalizer') || msg.includes('eq') || msg.includes('bass') || msg.includes('treble')) {
-        return 'The equalizer shows real-time frequency analysis. The bars represent different frequency ranges from bass (left) to treble (right).';
+        return 'The equalizer lets you adjust different frequency bands. Try the presets or adjust individual bands.';
+      } else if (msg.includes('crossfade') || msg.includes('fade')) {
+        return `Crossfade is set to ${crossfadeSlider.value} seconds. Adjust the slider to change the duration.`;
       } else if (msg.includes('hello') || msg.includes('hi') || msg.includes('hey')) {
         return 'Hello! How can I help with your music today?';
       } else if (msg.includes('thank')) {
@@ -783,8 +1042,9 @@
       }
     }
     
-    // Initialize visualizer
+    // Initialize components
     initVisualizer();
+    initEqualizer();
     
     // Set initial volume
     audio.volume = volumeSlider.value;
