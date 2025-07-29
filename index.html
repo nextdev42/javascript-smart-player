@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>NextAmp Player with EQ + Crossfade</title>
+  <style>
+    body {
+      background: #121212; color: #fff;
+      font-family: sans-serif;
+      padding: 20px;
+    }
+    h1 { text-align: center; }
+    .controls, .playlist, .eq, .crossfade {
+      max-width: 500px;
+      margin: 20px auto;
+    }
+    .controls button, input[type=range] {
+      margin: 5px;
+    }
+    .volume, .eq input, .crossfade input {
+      width: 100%;
+    }
+    ul { list-style: none; padding: 0; }
+    li { padding: 5px; border-bottom: 1px solid #444; cursor: pointer; }
+    li:hover { background: #1e1e1e; }
+  </style>
+</head>
+<body>
+
+<h1>🎛 NextAmp Web MP3 Player</h1>
+
+<div class="controls">
+  <input type="file" id="fileInput" multiple accept="audio/mp3"><br><br>
+  <button onclick="playSong()">▶ Play</button>
+  <button onclick="pauseSong()">⏸ Pause</button>
+  <button onclick="stopSong()">⏹ Stop</button><br>
+  <label>Volume</label>
+  <input type="range" min="0" max="1" step="0.01" id="volumeSlider" class="volume">
+</div>
+
+<div class="eq">
+  <h3>Equalizer</h3>
+  <label>Bass</label>
+  <input type="range" min="-30" max="30" value="0" id="bass"><br>
+  <label>Mid</label>
+  <input type="range" min="-30" max="30" value="0" id="mid"><br>
+  <label>Treble</label>
+  <input type="range" min="-30" max="30" value="0" id="treble"><br>
+</div>
+
+<div class="crossfade">
+  <h3>Crossfade</h3>
+  <label>Seconds: <span id="xf-label">5</span></label>
+  <input type="range" min="1" max="30" value="5" id="crossfadeSlider">
+</div>
+
+<div class="playlist">
+  <h3>Playlist</h3>
+  <ul id="playlist"></ul>
+</div>
+
+<script>
+  const fileInput = document.getElementById('fileInput');
+  const playlistUI = document.getElementById('playlist');
+  const volumeSlider = document.getElementById('volumeSlider');
+  const xfSlider = document.getElementById('crossfadeSlider');
+  const xfLabel = document.getElementById('xf-label');
+
+  const bassControl = document.getElementById('bass');
+  const midControl = document.getElementById('mid');
+  const trebleControl = document.getElementById('treble');
+
+  let context = new (window.AudioContext || window.webkitAudioContext)();
+  let gainNode = context.createGain();
+  let sourceNode = null;
+  let files = [];
+  let currentSongIndex = 0;
+  let isPlaying = false;
+  let audioBuffer = null;
+  let fadeDuration = parseInt(xfSlider.value);
+
+  // EQ filters
+  const bassFilter = context.createBiquadFilter();
+  bassFilter.type = "lowshelf";
+  bassFilter.frequency.value = 250;
+
+  const midFilter = context.createBiquadFilter();
+  midFilter.type = "peaking";
+  midFilter.frequency.value = 1000;
+
+  const trebleFilter = context.createBiquadFilter();
+  trebleFilter.type = "highshelf";
+  trebleFilter.frequency.value = 4000;
+
+  // Connect filters
+  bassFilter.connect(midFilter);
+  midFilter.connect(trebleFilter);
+  trebleFilter.connect(gainNode);
+  gainNode.connect(context.destination);
+
+  fileInput.addEventListener('change', () => {
+    playlistUI.innerHTML = '';
+    files = Array.from(fileInput.files);
+    files.forEach((file, i) => {
+      const li = document.createElement('li');
+      li.textContent = file.name;
+      li.onclick = () => {
+        currentSongIndex = i;
+        stopSong();
+        playSong();
+      };
+      playlistUI.appendChild(li);
+    });
+  });
+
+  async function playSong() {
+    if (!files[currentSongIndex]) return;
+
+    const file = files[currentSongIndex];
+    const arrayBuffer = await file.arrayBuffer();
+    audioBuffer = await context.decodeAudioData(arrayBuffer);
+
+    sourceNode = context.createBufferSource();
+    sourceNode.buffer = audioBuffer;
+    sourceNode.connect(bassFilter);
+    sourceNode.start();
+
+    isPlaying = true;
+
+    const duration = audioBuffer.duration;
+    const crossfadeTime = parseFloat(xfSlider.value);
+
+    setTimeout(() => {
+      if (currentSongIndex + 1 < files.length) {
+        crossfadeToNext();
+      }
+    }, (duration - crossfadeTime) * 1000);
+  }
+
+  function crossfadeToNext() {
+    const nextIndex = currentSongIndex + 1;
+    if (!files[nextIndex]) return;
+
+    const nextFile = files[nextIndex];
+    currentSongIndex = nextIndex;
+
+    fileInput.disabled = true;
+
+    const oldSource = sourceNode;
+    playSong();
+
+    // fade out old
+    const now = context.currentTime;
+    const fade = parseFloat(xfSlider.value);
+    gainNode.gain.linearRampToValueAtTime(0, now + fade);
+    setTimeout(() => oldSource.stop(), fade * 1000);
+  }
+
+  function pauseSong() {
+    if (context.state === "running") {
+      context.suspend();
+    }
+  }
+
+  function stopSong() {
+    if (sourceNode) {
+      sourceNode.stop();
+    }
+    context.close();
+    context = new (window.AudioContext || window.webkitAudioContext)();
+
+    // reconnect EQ
+    gainNode = context.createGain();
+    sourceNode = null;
+
+    bassFilter.disconnect();
+    midFilter.disconnect();
+    trebleFilter.disconnect();
+
+    bassFilter.connect(midFilter);
+    midFilter.connect(trebleFilter);
+    trebleFilter.connect(gainNode);
+    gainNode.connect(context.destination);
+  }
+
+  volumeSlider.addEventListener('input', () => {
+    gainNode.gain.value = parseFloat(volumeSlider.value);
+  });
+
+  bassControl.addEventListener('input', () => {
+    bassFilter.gain.value = parseFloat(bassControl.value);
+  });
+
+  midControl.addEventListener('input', () => {
+    midFilter.gain.value = parseFloat(midControl.value);
+  });
+
+  trebleControl.addEventListener('input', () => {
+    trebleFilter.gain.value = parseFloat(trebleControl.value);
+  });
+
+  xfSlider.addEventListener('input', () => {
+    fadeDuration = parseInt(xfSlider.value);
+    xfLabel.textContent = fadeDuration;
+  });
+</script>
+</body>
+</html>
