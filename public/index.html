@@ -517,7 +517,6 @@
     let isCrossfading = false;
     let gainNodes = [];
     let eqFilters = [];
-    let biquadFilters = [];
     
     // EQ frequencies (Hz)
     const eqFrequencies = [60, 150, 400, 1000, 2400, 6000, 15000];
@@ -587,12 +586,9 @@
         // Create EQ nodes
         const source = audioContext.createMediaElementSource(audio);
         
-        // Create gain nodes for each EQ band
-        gainNodes = [];
-        eqFilters = [];
-        
         // Create a series of biquad filters for each frequency band
         let lastNode = source;
+        eqFilters = [];
         
         eqFrequencies.forEach(freq => {
           const filter = audioContext.createBiquadFilter();
@@ -601,15 +597,9 @@
           filter.Q.value = 1;
           filter.gain.value = 0;
           
-          const gainNode = audioContext.createGain();
-          gainNode.gain.value = 1;
-          
           lastNode.connect(filter);
-          filter.connect(gainNode);
-          
           eqFilters.push(filter);
-          gainNodes.push(gainNode);
-          lastNode = gainNode;
+          lastNode = filter;
         });
         
         // Connect the last node to analyzer and destination
@@ -732,7 +722,7 @@
     
     // Crossfade between tracks
     function startCrossfade(nextTrackIndex) {
-      if (isCrossfading) return;
+      if (isCrossfading || nextTrackIndex < 0 || nextTrackIndex >= tracks.length) return;
       
       const crossfadeTime = parseInt(crossfadeSlider.value) * 1000;
       if (crossfadeTime <= 0) {
@@ -747,21 +737,15 @@
       nextAudio.volume = 0;
       nextAudio.currentTime = 0;
       
-      // Create audio context for next track if needed
-      if (!audioContext) {
-        setupAudioNodes();
-      }
-      
-      const nextSource = audioContext.createMediaElementSource(nextAudio);
-      nextSource.connect(analyser);
-      analyser.connect(audioContext.destination);
+      // Play next track
+      nextAudio.play().catch(e => console.error('Next track playback error:', e));
       
       // Fade out current track and fade in next track
-      const fadeOutInterval = 50;
-      const steps = crossfadeTime / fadeOutInterval;
+      const fadeInterval = 50; // ms
+      const steps = crossfadeTime / fadeInterval;
       let step = 0;
       
-      const fadeInterval = setInterval(() => {
+      const fadeIntervalId = setInterval(() => {
         step++;
         const progress = step / steps;
         
@@ -772,12 +756,7 @@
         nextAudio.volume = Math.min(volumeSlider.value, volumeSlider.value * progress);
         
         if (step >= steps) {
-          clearInterval(fadeInterval);
-          
-          // Play next track if not already playing
-          if (nextAudio.paused) {
-            nextAudio.play().catch(e => console.error('Playback error:', e));
-          }
+          clearInterval(fadeIntervalId);
           
           // Switch to next track
           audio.pause();
@@ -803,9 +782,7 @@
           
           isCrossfading = false;
         }
-      }, fadeOutInterval);
-      
-      nextAudio.play().catch(e => console.error('Playback error:', e));
+      }, fadeInterval);
     }
     
     // Play track by index
@@ -964,12 +941,6 @@
     });
     audio.addEventListener('ended', () => {
       playNext();
-    });
-    
-    nextAudio.addEventListener('loadedmetadata', () => {
-      if (isCrossfading) {
-        totalTimeEl.textContent = formatTime(nextAudio.duration);
-      }
     });
     
     prevBtn.addEventListener('click', playPrev);
