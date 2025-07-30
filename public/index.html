@@ -2,1060 +2,224 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Advanced MP3 Player</title>
+  <title>NextDev MP3 Player</title>
   <style>
-    :root {
-      --primary-color: #1db954;
-      --secondary-color: #191414;
-      --text-color: #ffffff;
-      --bg-color: #121212;
-      --card-bg: #181818;
-      --border-color: #282828;
-    }
-    
-    body { 
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
-      margin: 0; 
-      padding: 0; 
-      background: var(--bg-color); 
-      color: var(--text-color); 
-      min-height: 100vh;
-    }
-    
-    header, footer { 
-      padding: 15px; 
-      background: var(--secondary-color); 
-      text-align: center; 
-      box-shadow: 0 2px 10px rgba(0,0,0,0.3);
-    }
-    
-    header h1 {
-      margin: 0;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 10px;
-    }
-    
-    #player-container { 
-      display: flex; 
-      flex-direction: column; 
-      align-items: center; 
-      padding: 20px; 
-      max-width: 800px;
-      margin: 0 auto;
-    }
-    
-    .player-card {
-      background: var(--card-bg);
-      border-radius: 10px;
-      padding: 20px;
-      width: 100%;
-      box-shadow: 0 4px 20px rgba(0,0,0,0.2);
-      margin-bottom: 20px;
-    }
-    
-    #playlist { 
-      list-style: none; 
-      padding: 0; 
-      margin: 0;
-      width: 100%;
-      max-height: 300px;
-      overflow-y: auto;
-      border-radius: 5px;
-      background: var(--card-bg);
-    }
-    
-    #playlist li { 
-      padding: 12px 15px; 
-      border-bottom: 1px solid var(--border-color); 
-      cursor: pointer; 
-      transition: all 0.2s;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-    
-    #playlist li:hover { 
-      background: #282828; 
-    }
-    
-    #playlist li.playing { 
-      background: #2a2a2a;
-      color: var(--primary-color);
-      font-weight: bold;
-    }
-    
-    #playlist li .duration {
-      font-size: 0.8em;
-      color: #b3b3b3;
-    }
-    
-    #controls { 
-      display: flex; 
-      flex-wrap: wrap;
-      gap: 15px; 
-      margin: 20px 0;
-      align-items: center;
-      justify-content: center;
-      width: 100%;
-    }
-    
-    .control-group {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 5px;
-    }
-    
-    .control-group label {
-      font-size: 0.9em;
-      color: #b3b3b3;
-    }
-    
-    button {
-      background: var(--primary-color);
-      color: white;
-      border: none;
-      border-radius: 50%;
-      width: 50px;
-      height: 50px;
-      font-size: 18px;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      transition: transform 0.2s, background 0.2s;
-      box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-    }
-    
-    button:hover {
-      transform: scale(1.05);
-      background: #1ed760;
-    }
-    
-    button:active {
-      transform: scale(0.98);
-    }
-    
-    button.secondary {
-      background: #535353;
-      width: 40px;
-      height: 40px;
-      font-size: 16px;
-    }
-    
-    button.secondary:hover {
-      background: #666;
-    }
-    
-    input[type="range"] {
-      -webkit-appearance: none;
-      width: 100%;
-      height: 6px;
-      background: #535353;
-      border-radius: 3px;
-      outline: none;
-    }
-    
-    input[type="range"]::-webkit-slider-thumb {
-      -webkit-appearance: none;
-      width: 16px;
-      height: 16px;
-      background: var(--primary-color);
-      border-radius: 50%;
-      cursor: pointer;
-    }
-    
-    #progress-container {
-      width: 100%;
-      margin: 15px 0;
-    }
-    
-    #progress-bar {
-      width: 100%;
-      height: 4px;
-      background: #535353;
-      border-radius: 2px;
-      cursor: pointer;
-      position: relative;
-    }
-    
-    #progress {
-      height: 100%;
-      background: var(--primary-color);
-      border-radius: 2px;
-      width: 0%;
-    }
-    
-    #time-display {
-      display: flex;
-      justify-content: space-between;
-      font-size: 0.8em;
-      color: #b3b3b3;
-      margin-top: 5px;
-    }
-    
-    #drop-zone { 
-      border: 2px dashed #666; 
-      padding: 30px; 
-      margin: 20px auto; 
-      width: 90%; 
-      text-align: center; 
-      color: #aaa;
-      border-radius: 10px;
-      cursor: pointer;
-      transition: all 0.3s;
-      background: rgba(30, 30, 30, 0.5);
-    }
-    
-    #drop-zone.dragover { 
-      border-color: var(--primary-color); 
-      color: var(--primary-color);
-      background: rgba(29, 185, 84, 0.1);
-    }
-    
-    #drop-zone:hover {
-      background: rgba(40, 40, 40, 0.5);
-    }
-    
-    #now-playing {
-      margin: 15px 0;
-      text-align: center;
-      font-size: 1.1em;
-      min-height: 1.5em;
-    }
-    
-    #now-playing .title {
-      font-weight: bold;
-      color: var(--primary-color);
-    }
-    
-    #equalizer-container {
-      margin: 20px 0;
-      background: var(--card-bg);
-      padding: 15px;
-      border-radius: 8px;
-    }
-    
-    #equalizer-controls {
-      display: flex;
-      justify-content: space-between;
-      margin-bottom: 10px;
-    }
-    
-    .eq-preset-btn {
-      background: #333;
-      border: none;
-      color: white;
-      padding: 5px 10px;
-      border-radius: 4px;
-      cursor: pointer;
-      font-size: 0.8em;
-    }
-    
-    .eq-preset-btn:hover {
-      background: #444;
-    }
-    
-    #equalizer {
-      display: flex;
-      justify-content: center;
-      gap: 10px;
-      height: 150px;
-      align-items: flex-end;
-    }
-    
-    .eq-band-container {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 5px;
-    }
-    
-    .eq-band {
-      width: 30px;
-      background: linear-gradient(to top, var(--primary-color), #4dff91);
-      border-radius: 3px 3px 0 0;
-      position: relative;
-      transition: height 0.1s;
-    }
-    
-    .eq-band-label {
-      font-size: 0.7em;
-      color: #b3b3b3;
-    }
-    
-    .eq-gain {
-      width: 30px;
-      -webkit-appearance: slider-vertical;
-      writing-mode: bt-lr;
-      height: 80px;
-    }
-    
-    #visualizer {
-      width: 100%;
-      height: 100px;
-      background: #000;
-      border-radius: 5px;
-      margin: 15px 0;
-      position: relative;
-      overflow: hidden;
-    }
-    
-    .visualizer-bar {
-      position: absolute;
-      bottom: 0;
-      width: 3px;
-      background: var(--primary-color);
-      transition: height 0.05s;
-    }
-    
-    #chatbot-container {
-      position: fixed;
-      bottom: 20px;
-      right: 20px;
-      width: 300px;
-      transition: all 0.3s;
-      z-index: 100;
-    }
-    
-    #chatbot-container.collapsed {
-      height: 40px;
-      overflow: hidden;
-    }
-    
-    #chatbot-header {
-      background: var(--secondary-color);
-      padding: 10px;
-      border-radius: 10px 10px 0 0;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      cursor: pointer;
-    }
-    
-    #chatbot {
-      height: 300px;
-      border: 1px solid var(--border-color);
-      background: #000;
-      color: #0f0;
-      padding: 10px;
-      overflow-y: auto;
-      border-radius: 0 0 10px 10px;
-      font-family: 'Courier New', monospace;
-      font-size: 0.9em;
-    }
-    
-    #chat-input {
-      width: 100%;
-      padding: 8px;
+    body {
+      font-family: sans-serif;
       background: #111;
-      border: 1px solid #333;
-      color: #0f0;
-      margin-top: 5px;
-      font-family: 'Courier New', monospace;
+      color: #fff;
+      padding: 20px;
     }
-    
-    #chat-input:focus {
-      outline: 1px solid var(--primary-color);
+    h1 { text-align: center; }
+    #controls, #equalizer {
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+      margin: 10px 0;
     }
-    
-    .chat-message {
-      margin-bottom: 10px;
-      line-height: 1.4;
+    #playlist {
+      list-style: none;
+      padding: 0;
     }
-    
-    .user-message {
-      color: #0ff;
+    #playlist li {
+      padding: 5px;
+      margin: 5px 0;
+      background: #333;
+      cursor: grab;
     }
-    
-    .bot-message {
-      color: #0f0;
+    input[type="range"] {
+      width: 100px;
     }
-    
-    @media (max-width: 768px) {
-      #player-container {
-        padding: 10px;
-      }
-      
-      #chatbot-container {
-        width: calc(100% - 40px);
-        right: 20px;
-        left: 20px;
-      }
-      
-      .player-card {
-        padding: 15px;
-      }
-      
-      #equalizer {
-        gap: 5px;
-      }
-      
-      .eq-band {
-        width: 20px;
-      }
-      
-      .eq-gain {
-        width: 20px;
-      }
+    .slider-group {
+      text-align: center;
     }
   </style>
 </head>
 <body>
-  <header><h1><span style="color: #1db954">🎧</span> Advanced MP3 Player</h1></header>
-  
-  <div id="player-container">
-    <div class="player-card">
-      <div id="drop-zone">
-        <p>Drag & drop audio files here or click to select</p>
-        <p><small>Supports MP3, OGG, WAV files</small></p>
-      </div>
-      <input type="file" id="file-input" accept="audio/*" multiple style="display:none;">
-      
-      <div id="now-playing">
-        <span class="title" id="current-track">No track selected</span>
-        <span id="current-artist"></span>
-      </div>
-      
-      <div id="visualizer"></div>
-      
-      <div id="progress-container">
-        <div id="progress-bar" title="Click to seek">
-          <div id="progress"></div>
-        </div>
-        <div id="time-display">
-          <span id="current-time">0:00</span>
-          <span id="total-time">0:00</span>
-        </div>
-      </div>
-      
-      <div id="controls">
-        <button id="prevBtn" class="secondary" title="Previous">⏮</button>
-        <button id="playPauseBtn" title="Play/Pause">▶️</button>
-        <button id="nextBtn" class="secondary" title="Next">⏭</button>
-        
-        <div class="control-group">
-          <label for="volume">Volume</label>
-          <input type="range" id="volume" min="0" max="1" step="0.01" value="0.7" />
-        </div>
-        
-        <div class="control-group">
-          <label for="crossfade">Crossfade (s)</label>
-          <input type="range" id="crossfade" min="0" max="10" step="1" value="3" />
-        </div>
-      </div>
-      
-      <div id="equalizer-container">
-        <div id="equalizer-controls">
-          <span>Equalizer</span>
-          <div>
-            <button class="eq-preset-btn" data-preset="flat">Flat</button>
-            <button class="eq-preset-btn" data-preset="bass">Bass Boost</button>
-            <button class="eq-preset-btn" data-preset="treble">Treble Boost</button>
-          </div>
-        </div>
-        <div id="equalizer">
-          <!-- EQ bands will be added by JavaScript -->
-        </div>
-      </div>
-      
-      <h3>Playlist</h3>
-      <ul id="playlist"></ul>
-    </div>
-  </div>
-  
-  <div id="chatbot-container" class="collapsed">
-    <div id="chatbot-header">
-      <span>Music Assistant</span>
-      <button id="toggle-chatbot" class="secondary" style="width:30px;height:30px;">▼</button>
-    </div>
-    <div id="chatbot">
-      <div class="chat-message bot-message">Hello! I'm your music assistant. Ask me about the player or your music.</div>
-    </div>
-    <input type="text" id="chat-input" placeholder="Type your question..." />
-  </div>
-  
-  <footer><p>🎵 Built with ❤️ and JavaScript</p></footer>
+  <h1>🎧 NextDev MP3 Player</h1>
 
+  <input type="file" id="fileInput" multiple accept=".mp3" />
+  <ul id="playlist"></ul>
+
+  <div id="controls">
+    <button id="playBtn">▶️ Play</button>
+    <button id="pauseBtn">⏸️ Pause</button>
+    <button id="stopBtn">⏹️ Stop</button>
+    <input type="range" id="volume" min="0" max="1" step="0.01" />
+  </div>
+
+  <div id="equalizer">
+    <div class="slider-group">
+      <label>Bass</label><br>
+      <input type="range" id="bass" min="-40" max="40" value="0" />
+    </div>
+    <div class="slider-group">
+      <label>Mid</label><br>
+      <input type="range" id="mid" min="-40" max="40" value="0" />
+    </div>
+    <div class="slider-group">
+      <label>Treble</label><br>
+      <input type="range" id="treble" min="-40" max="40" value="0" />
+    </div>
+  </div>
+
+  <label>⏱️ Crossfade Duration (sec): 
+    <input type="number" id="crossfadeDuration" value="5" min="0" max="30" />
+  </label>
+
+  <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
   <script>
-    // DOM Elements
-    const audio = new Audio();
-    const playPauseBtn = document.getElementById('playPauseBtn');
+    const fileInput = document.getElementById('fileInput');
+    const playlist = document.getElementById('playlist');
+    const playBtn = document.getElementById('playBtn');
+    const pauseBtn = document.getElementById('pauseBtn');
+    const stopBtn = document.getElementById('stopBtn');
     const volumeSlider = document.getElementById('volume');
-    const playlistEl = document.getElementById('playlist');
-    const crossfadeSlider = document.getElementById('crossfade');
-    const dropZone = document.getElementById('drop-zone');
-    const fileInput = document.getElementById('file-input');
-    const progressBar = document.getElementById('progress-bar');
-    const progress = document.getElementById('progress');
-    const currentTimeEl = document.getElementById('current-time');
-    const totalTimeEl = document.getElementById('total-time');
-    const currentTrackEl = document.getElementById('current-track');
-    const prevBtn = document.getElementById('prevBtn');
-    const nextBtn = document.getElementById('nextBtn');
-    const visualizer = document.getElementById('visualizer');
-    const equalizerContainer = document.getElementById('equalizer');
-    const eqPresetBtns = document.querySelectorAll('.eq-preset-btn');
-    const toggleChatbotBtn = document.getElementById('toggle-chatbot');
-    const chatbotContainer = document.getElementById('chatbot-container');
-    const chatbot = document.getElementById('chatbot');
-    const chatInput = document.getElementById('chat-input');
-    
-    // Player state
-    let currentTrackIndex = -1;
+    const bassSlider = document.getElementById('bass');
+    const midSlider = document.getElementById('mid');
+    const trebleSlider = document.getElementById('treble');
+    const crossfadeInput = document.getElementById('crossfadeDuration');
+
+    let audioCtx, source, gainNode;
+    let bass, mid, treble;
+    let audioBuffers = [];
+    let currentIndex = -1;
     let isPlaying = false;
-    let tracks = [];
-    let audioContext;
-    let analyser;
-    let dataArray;
-    let animationId;
-    let visualizerBars = [];
-    let crossfadeAudio = new Audio();
-    let isCrossfading = false;
-    let crossfadeTimeout;
-    let eqFilters = [];
-    
-    // EQ frequencies (Hz)
-    const eqFrequencies = [60, 150, 400, 1000, 2400, 6000, 15000];
-    
-    // Initialize visualizer bars
-    function initVisualizer() {
-      visualizer.innerHTML = '';
-      visualizerBars = [];
-      const barCount = 64;
-      const barWidth = visualizer.offsetWidth / barCount;
-      
-      for (let i = 0; i < barCount; i++) {
-        const bar = document.createElement('div');
-        bar.className = 'visualizer-bar';
-        bar.style.left = `${i * barWidth}px`;
-        bar.style.height = '1px';
-        visualizer.appendChild(bar);
-        visualizerBars.push(bar);
+
+    fileInput.addEventListener('change', async (e) => {
+      const files = Array.from(e.target.files);
+      for (const file of files) {
+        const li = document.createElement('li');
+        li.textContent = file.name;
+        li.dataset.filename = file.name;
+        li.file = file;
+        playlist.appendChild(li);
       }
-    }
-    
-    // Initialize equalizer
-    function initEqualizer() {
-      equalizerContainer.innerHTML = '';
-      
-      eqFrequencies.forEach((freq, i) => {
-        const bandContainer = document.createElement('div');
-        bandContainer.className = 'eq-band-container';
-        
-        const band = document.createElement('div');
-        band.className = 'eq-band';
-        band.style.height = '50%';
-        band.dataset.freq = freq;
-        
-        const label = document.createElement('div');
-        label.className = 'eq-band-label';
-        label.textContent = freq >= 1000 ? `${freq/1000}kHz` : `${freq}Hz`;
-        
-        const gainSlider = document.createElement('input');
-        gainSlider.type = 'range';
-        gainSlider.className = 'eq-gain';
-        gainSlider.min = '-12';
-        gainSlider.max = '12';
-        gainSlider.step = '1';
-        gainSlider.value = '0';
-        gainSlider.dataset.freq = freq;
-        gainSlider.dataset.index = i;
-        
-        bandContainer.appendChild(band);
-        bandContainer.appendChild(gainSlider);
-        bandContainer.appendChild(label);
-        equalizerContainer.appendChild(bandContainer);
-        
-        gainSlider.addEventListener('input', updateEQ);
-      });
-    }
-    
-    // Setup audio analyzer and EQ
+    });
+
+    new Sortable(playlist, {
+      animation: 150,
+    });
+
+    playlist.addEventListener('click', async (e) => {
+      if (e.target.tagName === 'LI') {
+        currentIndex = Array.from(playlist.children).indexOf(e.target);
+        await playSelectedTrack();
+      }
+    });
+
     function setupAudioNodes() {
-      if (!audioContext) {
-        audioContext = new (window.AudioContext || window.webkitAudioContext)();
-        
-        // Create analyzer for visualization
-        analyser = audioContext.createAnalyser();
-        analyser.fftSize = 256;
-        
-        // Create EQ nodes
-        const source = audioContext.createMediaElementSource(audio);
-        
-        // Create a series of biquad filters for each frequency band
-        let lastNode = source;
-        eqFilters = [];
-        
-        eqFrequencies.forEach(freq => {
-          const filter = audioContext.createBiquadFilter();
-          filter.type = "peaking";
-          filter.frequency.value = freq;
-          filter.Q.value = 1;
-          filter.gain.value = 0;
-          
-          lastNode.connect(filter);
-          eqFilters.push(filter);
-          lastNode = filter;
-        });
-        
-        // Connect the last node to analyzer and destination
-        lastNode.connect(analyser);
-        analyser.connect(audioContext.destination);
-        
-        dataArray = new Uint8Array(analyser.frequencyBinCount);
-      }
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      gainNode = audioCtx.createGain();
+
+      bass = audioCtx.createBiquadFilter();
+      bass.type = 'lowshelf';
+      bass.frequency.value = 200;
+
+      mid = audioCtx.createBiquadFilter();
+      mid.type = 'peaking';
+      mid.frequency.value = 1000;
+
+      treble = audioCtx.createBiquadFilter();
+      treble.type = 'highshelf';
+      treble.frequency.value = 3000;
+
+      bass.connect(mid);
+      mid.connect(treble);
+      treble.connect(gainNode);
+      gainNode.connect(audioCtx.destination);
     }
-    
-    // Update EQ settings
-    function updateEQ() {
-      if (!audioContext) return;
-      
-      const sliders = document.querySelectorAll('.eq-gain');
-      sliders.forEach((slider, i) => {
-        const gainValue = parseFloat(slider.value);
-        if (eqFilters[i]) {
-          eqFilters[i].gain.value = gainValue;
-        }
-        
-        // Update the visual band height
-        const band = slider.previousElementSibling;
-        if (band) {
-          // Map from -12 to +12 dB to 0% to 100% height
-          const heightPercent = ((gainValue + 12) / 24) * 100;
-          band.style.height = `${heightPercent}%`;
-        }
-      });
-    }
-    
-    // Apply EQ preset
-    function applyEQPreset(preset) {
-      const presets = {
-        flat: [0, 0, 0, 0, 0, 0, 0],
-        bass: [8, 6, 2, 0, -2, -4, -6],
-        treble: [-6, -4, -2, 0, 4, 8, 6]
-      };
-      
-      const gains = presets[preset] || presets.flat;
-      const sliders = document.querySelectorAll('.eq-gain');
-      
-      sliders.forEach((slider, i) => {
-        slider.value = gains[i];
-      });
-      
-      updateEQ();
-    }
-    
-    // Format time (seconds to MM:SS)
-    function formatTime(seconds) {
-      const mins = Math.floor(seconds / 60);
-      const secs = Math.floor(seconds % 60);
-      return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
-    }
-    
-    // Update progress bar
-    function updateProgress() {
-      if (audio.duration) {
-        const percent = (audio.currentTime / audio.duration) * 100;
-        progress.style.width = `${percent}%`;
-        currentTimeEl.textContent = formatTime(audio.currentTime);
-        
-        // Check if we should start crossfade
-        if (!isCrossfading && parseInt(crossfadeSlider.value) > 0) {
-          const remainingTime = audio.duration - audio.currentTime;
-          const crossfadeTime = parseInt(crossfadeSlider.value);
-          
-          if (remainingTime <= crossfadeTime + 0.5) { // Add small buffer
-            playNext();
-          }
-        }
-      }
-    }
-    
-    // Seek in audio
-    function seekAudio(e) {
-      const percent = e.offsetX / progressBar.offsetWidth;
-      audio.currentTime = percent * audio.duration;
-    }
-    
-    // Add track to playlist
-    function addToPlaylist(file) {
-      const url = URL.createObjectURL(file);
-      const track = { 
-        name: file.name.replace(/\.[^/.]+$/, ""), // Remove file extension
-        url,
-        duration: 0
-      };
-      
-      // Get duration
-      const tempAudio = new Audio();
-      tempAudio.src = url;
-      tempAudio.addEventListener('loadedmetadata', () => {
-        track.duration = tempAudio.duration;
-        updatePlaylistItem(tracks.length - 1);
-      });
-      
-      tracks.push(track);
-      updatePlaylistItem(tracks.length - 1);
-      
-      // If first track, play it
-      if (tracks.length === 1) {
-        playTrack(0);
-      }
-    }
-    
-    // Update playlist item in DOM
-    function updatePlaylistItem(index) {
-      const track = tracks[index];
-      let li = playlistEl.children[index];
-      
-      if (!li) {
-        li = document.createElement('li');
-        playlistEl.appendChild(li);
-      }
-      
-      li.innerHTML = `
-        <span>${track.name}</span>
-        <span class="duration">${track.duration ? formatTime(track.duration) : '--:--'}</span>
-      `;
-      li.dataset.index = index;
-      
-      if (index === currentTrackIndex) {
-        li.classList.add('playing');
+
+    async function playSelectedTrack() {
+      stopAudio();
+
+      if (!audioCtx) setupAudioNodes();
+
+      const li = playlist.children[currentIndex];
+      const file = li.file;
+
+      const arrayBuffer = await file.arrayBuffer();
+      const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+
+      const newSource = audioCtx.createBufferSource();
+      newSource.buffer = audioBuffer;
+
+      // Connect EQ
+      newSource.connect(bass);
+
+      const crossfade = parseFloat(crossfadeInput.value || '0');
+      if (source) {
+        crossfadeTracks(source, newSource, crossfade);
       } else {
-        li.classList.remove('playing');
-      }
-    }
-    
-    // Crossfade between tracks
-    function startCrossfade(nextTrackIndex) {
-      if (isCrossfading || nextTrackIndex < 0 || nextTrackIndex >= tracks.length) return;
-      
-      const crossfadeTime = parseInt(crossfadeSlider.value) * 1000;
-      if (crossfadeTime <= 0) {
-        playTrack(nextTrackIndex);
-        return;
+        gainNode.gain.setValueAtTime(volumeSlider.value, audioCtx.currentTime);
+        newSource.start();
       }
 
-      isCrossfading = true;
-      
-      // Setup crossfade audio
-      crossfadeAudio.src = tracks[nextTrackIndex].url;
-      crossfadeAudio.volume = 0;
-      
-      // Start playing the next track (muted)
-      crossfadeAudio.play().catch(e => console.error('Crossfade playback error:', e));
-      
-      // Calculate when to start the crossfade (before current track ends)
-      const remainingTime = audio.duration - audio.currentTime;
-      const startFadeAt = Math.max(0, remainingTime - (crossfadeTime / 1000));
-      
-      if (startFadeAt <= 0) {
-        // If we're at the end, just switch tracks
-        playTrack(nextTrackIndex);
-        isCrossfading = false;
-        return;
-      }
-
-      // Set up the fade to start at the right time
-      crossfadeTimeout = setTimeout(() => {
-        performCrossfade(nextTrackIndex, crossfadeTime);
-      }, startFadeAt * 1000);
+      source = newSource;
+      source.start();
+      isPlaying = true;
     }
 
-    function performCrossfade(nextTrackIndex, crossfadeTime) {
-      if (!isCrossfading) return;
-      
-      const fadeSteps = 20;
-      const stepTime = crossfadeTime / fadeSteps;
-      let step = 0;
-      
-      const fadeInterval = setInterval(() => {
-        step++;
-        const progress = step / fadeSteps;
-        
-        // Fade out current track
-        audio.volume = Math.max(0, volumeSlider.value * (1 - progress));
-        
-        // Fade in next track
-        crossfadeAudio.volume = Math.min(volumeSlider.value, volumeSlider.value * progress);
-        
-        if (step >= fadeSteps) {
-          clearInterval(fadeInterval);
-          completeCrossfade(nextTrackIndex);
-        }
-      }, stepTime);
-    }
-
-    function completeCrossfade(nextTrackIndex) {
-      // Pause and clean up the current audio
-      audio.pause();
-      
-      // Switch to the new track
-      audio.src = crossfadeAudio.src;
-      audio.currentTime = crossfadeAudio.currentTime;
-      audio.volume = volumeSlider.value;
-      
-      if (isPlaying) {
-        audio.play().catch(e => console.error('Playback error:', e));
-      }
-      
-      // Update track information
-      currentTrackIndex = nextTrackIndex;
-      currentTrackEl.textContent = tracks[currentTrackIndex].name;
-      
-      // Update playlist highlight
-      Array.from(playlistEl.children).forEach((li, i) => {
-        li.classList.toggle('playing', i === currentTrackIndex);
-      });
-      
-      // Reset crossfade state
-      isCrossfading = false;
-      crossfadeAudio.volume = 0;
-      crossfadeAudio.pause();
-      clearTimeout(crossfadeTimeout);
-    }
-
-    // Play track by index
-    function playTrack(index) {
-      if (index < 0 || index >= tracks.length) return;
-      
-      // Cancel any ongoing crossfade
-      if (isCrossfading) {
-        clearTimeout(crossfadeTimeout);
-        crossfadeAudio.pause();
-        isCrossfading = false;
-      }
-      
-      currentTrackIndex = index;
-      const track = tracks[index];
-      
-      audio.src = track.url;
-      audio.currentTime = 0;
-      audio.volume = volumeSlider.value;
-      audio.play()
-        .then(() => {
-          isPlaying = true;
-          playPauseBtn.textContent = '⏸';
-          currentTrackEl.textContent = track.name;
-          
-          // Highlight current track in playlist
-          Array.from(playlistEl.children).forEach((li, i) => {
-            li.classList.toggle('playing', i === index);
-          });
-          
-          // Setup audio analyzer if not already done
-          setupAudioNodes();
-          if (animationId) {
-            cancelAnimationFrame(animationId);
-          }
-          updateVisualizer();
-        })
-        .catch(error => {
-          console.error('Playback failed:', error);
-        });
-    }
-
-    // Play next track
-    function playNext() {
-      if (tracks.length === 0) return;
-      const nextIndex = (currentTrackIndex + 1) % tracks.length;
-      
-      if (parseInt(crossfadeSlider.value) > 0) {
-        startCrossfade(nextIndex);
-      } else {
-        playTrack(nextIndex);
+    function stopAudio() {
+      if (source) {
+        source.stop();
+        source.disconnect();
+        source = null;
       }
     }
 
-    // Play previous track
-    function playPrev() {
-      if (tracks.length === 0) return;
-      const prevIndex = (currentTrackIndex - 1 + tracks.length) % tracks.length;
-      
-      if (parseInt(crossfadeSlider.value) > 0) {
-        startCrossfade(prevIndex);
-      } else {
-        playTrack(prevIndex);
+    playBtn.addEventListener('click', async () => {
+      if (!isPlaying && currentIndex >= 0) {
+        await playSelectedTrack();
+      } else if (!isPlaying && currentIndex === -1 && playlist.children.length > 0) {
+        currentIndex = 0;
+        await playSelectedTrack();
       }
-    }
-    
-    // Update visualizer
-    function updateVisualizer() {
-      if (!analyser) return;
-      
-      analyser.getByteFrequencyData(dataArray);
-      
-      for (let i = 0; i < visualizerBars.length; i++) {
-        const value = dataArray[i % dataArray.length] / 255;
-        const height = value * visualizer.offsetHeight * 0.9;
-        visualizerBars[i].style.height = `${height}px`;
-        visualizerBars[i].style.backgroundColor = `hsl(${value * 120 + 100}, 100%, 50%)`;
-      }
-      
-      animationId = requestAnimationFrame(updateVisualizer);
-    }
-    
-    // Event Listeners
-    playPauseBtn.addEventListener('click', () => {
-      if (tracks.length === 0) return;
-      
-      if (audio.paused) {
-        audio.play()
-          .then(() => {
-            isPlaying = true;
-            playPauseBtn.textContent = '⏸';
-            setupAudioNodes();
-            if (animationId) {
-              cancelAnimationFrame(animationId);
-            }
-            updateVisualizer();
-          });
-      } else {
-        audio.pause();
+    });
+
+    pauseBtn.addEventListener('click', () => {
+      if (audioCtx) {
+        audioCtx.suspend();
         isPlaying = false;
-        playPauseBtn.textContent = '▶️';
-        if (animationId) {
-          cancelAnimationFrame(animationId);
-        }
       }
     });
-    
-    playlistEl.addEventListener('click', e => {
-      const li = e.target.closest('li');
-      if (li) {
-        const index = parseInt(li.dataset.index);
-        if (index !== currentTrackIndex) {
-          playTrack(index);
-        } else if (audio.paused) {
-          audio.play();
-          isPlaying = true;
-          playPauseBtn.textContent = '⏸';
-        } else {
-          audio.pause();
-          isPlaying = false;
-          playPauseBtn.textContent = '▶️';
-        }
-      }
+
+    stopBtn.addEventListener('click', () => {
+      stopAudio();
+      isPlaying = false;
     });
-    
+
     volumeSlider.addEventListener('input', () => {
-      audio.volume = volumeSlider.value;
-      if (!crossfadeAudio.paused) {
-        crossfadeAudio.volume = volumeSlider.value;
-      }
+      if (gainNode) gainNode.gain.value = volumeSlider.value;
     });
-    
-    dropZone.addEventListener('click', () => fileInput.click());
-    dropZone.addEventListener('dragover', e => {
-      e.preventDefault();
-      dropZone.classList.add('dragover');
-    });
-    dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
-    dropZone.addEventListener('drop', e => {
-      e.preventDefault();
-      dropZone.classList.remove('dragover');
-      [...e.dataTransfer.files].forEach(file => {
-        if (file.type.startsWith('audio/')) addToPlaylist(file);
-      });
-    });
-    
-    fileInput.addEventListener('change', e => {
-      [...e.target.files].forEach(file => {
-        if (file.type.startsWith('audio/')) addToPlaylist(file);
-      });
-      fileInput.value = ''; // Reset to allow selecting same files again
-    });
-    
-    progressBar.addEventListener('click', seekAudio);
-    
-    audio.addEventListener('timeupdate', updateProgress);
-    audio.addEventListener('loadedmetadata', () => {
-      totalTimeEl.textContent = formatTime(audio.duration);
-    });
-    audio.addEventListener('ended', () => {
-      playNext();
-    });
-    
-    prevBtn.addEventListener('click', playPrev);
-    nextBtn.addEventListener('click', playNext);
-    
-    // EQ preset buttons
-    eqPresetBtns.forEach(btn => {
-      btn.addEventListener('click', () => {
-        applyEQPreset(btn.dataset.preset);
-      });
-    });
-    
-    // Chatbot functionality
-    toggleChatbotBtn.addEventListener('click', () => {
-      chatbotContainer.classList.toggle('collapsed');
-      toggleChatbotBtn.textContent = chatbotContainer.classList.contains('collapsed') ? '▼' : '▲';
-    });
-    
-    chatInput.addEventListener('keypress', e => {
-      if (e.key === 'Enter') {
-        const msg = chatInput.value.trim();
-        if (!msg) return;
-        
-        // Add user message
-        const userMsg = document.createElement('div');
-        userMsg.className = 'chat-message user-message';
-        userMsg.textContent = `> ${msg}`;
-        chatbot.appendChild(userMsg);
-        
-        // Process and add bot response
-        let reply = processChatMessage(msg);
-        const botMsg = document.createElement('div');
-        botMsg.className = 'chat-message bot-message';
-        botMsg.innerHTML = `<em>${reply}</em>`;
-        chatbot.appendChild(botMsg);
-        
-        chatInput.value = '';
-        chatbot.scrollTop = chatbot.scrollHeight;
-      }
-    });
-    
-    // Process chatbot messages
-    function processChatMessage(msg) {
-      msg = msg.toLowerCase();
-      
-      if (msg.includes('help') || msg.includes('what can you do')) {
-        return 'I can help with: current song, playlist, volume, equalizer. Try asking "what\'s playing?" or "how many songs are loaded?"';
-      } else if (msg.includes('playing') || msg.includes('current') || msg.includes('now')) {
-        return currentTrackIndex >= 0 
-          ? `Now playing: ${tracks[currentTrackIndex].name} (${formatTime(audio.currentTime)}/${formatTime(audio.duration)})`
-          : 'No track is currently playing. Add some music first!';
-      } else if (msg.includes('how many') || msg.includes('count') || msg.includes('number')) {
-        return `There are ${tracks.length} tracks in your playlist.`;
-      } else if (msg.includes('volume') || msg.includes('loud')) {
-        return `Current volume is at ${Math.round(audio.volume * 100)}%. Use the slider to adjust.`;
-      } else if (msg.includes('next') || msg.includes('skip')) {
-        return 'Use the ⏭ button to skip to the next track.';
-      } else if (msg.includes('previous') || msg.includes('back')) {
-        return 'Use the ⏮ button to go back to the previous track.';
-      } else if (msg.includes('equalizer') || msg.includes('eq') || msg.includes('bass') || msg.includes('treble')) {
-        return 'The equalizer lets you adjust different frequency bands. Try the presets or adjust individual bands.';
-      } else if (msg.includes('crossfade') || msg.includes('fade')) {
-        return `Crossfade is set to ${crossfadeSlider.value} seconds. Adjust the slider to change the duration.`;
-      } else if (msg.includes('hello') || msg.includes('hi') || msg.includes('hey')) {
-        return 'Hello! How can I help with your music today?';
-      } else if (msg.includes('thank')) {
-        return 'You\'re welcome! Enjoy your music. 🎵';
-      } else {
-        return 'I\'m not sure I understand. Try asking about the current song, playlist, or player controls. Type "help" for suggestions.';
-      }
+
+    bassSlider.addEventListener('input', () => bass.gain.value = bassSlider.value);
+    midSlider.addEventListener('input', () => mid.gain.value = midSlider.value);
+    trebleSlider.addEventListener('input', () => treble.gain.value = trebleSlider.value);
+
+    function crossfadeTracks(oldSource, newSource, duration) {
+      const oldGain = audioCtx.createGain();
+      const newGain = audioCtx.createGain();
+
+      oldSource.disconnect();
+      newSource.disconnect();
+
+      oldSource.connect(oldGain);
+      newSource.connect(newGain);
+
+      oldGain.connect(audioCtx.destination);
+      newGain.connect(audioCtx.destination);
+
+      const now = audioCtx.currentTime;
+      oldGain.gain.setValueAtTime(1, now);
+      oldGain.gain.linearRampToValueAtTime(0, now + duration);
+
+      newGain.gain.setValueAtTime(0, now);
+      newGain.gain.linearRampToValueAtTime(volumeSlider.value, now + duration);
+
+      newSource.start();
+      source = newSource;
     }
-    
-    // Initialize components
-    initVisualizer();
-    initEqualizer();
-    
-    // Set initial volume
-    audio.volume = volumeSlider.value;
   </script>
 </body>
 </html>
