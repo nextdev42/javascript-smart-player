@@ -65,6 +65,13 @@
       font-size: 12px;
       color: #aaa;
     }
+    .status {
+      text-align: center;
+      margin-top: 10px;
+      color: #4a8cff;
+      font-size: 14px;
+      height: 20px;
+    }
   </style>
 </head>
 <body>
@@ -100,193 +107,350 @@
   <label>⏱️ Crossfade Duration (sec):
     <input type="number" id="crossfadeDuration" value="5" min="0" max="30" />
   </label>
+  
+  <div class="status" id="status"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
 <script>
-  const fileInput  = document.getElementById('fileInput');
-  const playlist   = document.getElementById('playlist');
-  const playBtn    = document.getElementById('playBtn');
-  const pauseBtn   = document.getElementById('pauseBtn');
-  const stopBtn    = document.getElementById('stopBtn');
-  const prevBtn    = document.getElementById('prevBtn');
-  const nextBtn    = document.getElementById('nextBtn');
-  const volumeSlider=document.getElementById('volume');
+  const fileInput = document.getElementById('fileInput');
+  const playlist = document.getElementById('playlist');
+  const playBtn = document.getElementById('playBtn');
+  const pauseBtn = document.getElementById('pauseBtn');
+  const stopBtn = document.getElementById('stopBtn');
+  const prevBtn = document.getElementById('prevBtn');
+  const nextBtn = document.getElementById('nextBtn');
+  const volumeSlider = document.getElementById('volume');
   const bassSlider = document.getElementById('bass');
-  const midSlider  = document.getElementById('mid');
-  const trebleSlider=document.getElementById('treble');
-  const crossfadeInput=document.getElementById('crossfadeDuration');
-  const trackInfo  = document.getElementById('trackInfo');
-  const progressBar= document.getElementById('progressBar');
-  const progressContainer= document.getElementById('progressContainer');
-  const currentTimeDisplay=document.getElementById('currentTime');
-  const totalTimeDisplay=document.getElementById('totalTime');
+  const midSlider = document.getElementById('mid');
+  const trebleSlider = document.getElementById('treble');
+  const crossfadeInput = document.getElementById('crossfadeDuration');
+  const trackInfo = document.getElementById('trackInfo');
+  const progressBar = document.getElementById('progressBar');
+  const progressContainer = document.getElementById('progressContainer');
+  const currentTimeDisplay = document.getElementById('currentTime');
+  const totalTimeDisplay = document.getElementById('totalTime');
+  const status = document.getElementById('status');
 
   let audioCtx, source, gainNode;
   let bass, mid, treble;
-  let audioBuffers=[];
-  let currentIndex=-1, isPlaying=false;
-  let startTime=0, pausedAt=0, animationFrame;
+  let audioBuffers = [];
+  let currentIndex = -1, isPlaying = false;
+  let startTime = 0, pausedAt = 0, animationFrame;
+  let nextSource = null;
+  let isCrossfading = false;
 
-  fileInput.addEventListener('change',(e)=>{
-    for(const file of Array.from(e.target.files)){
-      const li=document.createElement('li');
-      li.textContent=file.name; li.file=file;
+  fileInput.addEventListener('change', (e) => {
+    for (const file of Array.from(e.target.files)) {
+      const li = document.createElement('li');
+      li.textContent = file.name; 
+      li.file = file;
       playlist.appendChild(li);
     }
   });
 
-  new Sortable(playlist,{animation:150});
+  new Sortable(playlist, {animation: 150});
 
-  playlist.addEventListener('click',async(e)=>{
-    if(e.target.tagName==='LI'){
-      currentIndex=[...playlist.children].indexOf(e.target);
+  playlist.addEventListener('click', async (e) => {
+    if (e.target.tagName === 'LI') {
+      currentIndex = [...playlist.children].indexOf(e.target);
       await playSelectedTrack();
     }
   });
 
-  progressContainer.addEventListener('click',(e)=>{
-    if(!source||!source.buffer)return;
-    const rect=progressContainer.getBoundingClientRect();
-    const pos=(e.clientX-rect.left)/rect.width;
-    const seek=pos*source.buffer.duration;
-    source.stop();source.disconnect();
-    pausedAt=seek; createAndStartSource();
+  progressContainer.addEventListener('click', (e) => {
+    if (!source || !source.buffer) return;
+    const rect = progressContainer.getBoundingClientRect();
+    const pos = (e.clientX - rect.left) / rect.width;
+    const seek = pos * source.buffer.duration;
+    
+    if (source) {
+      source.stop();
+      source.disconnect();
+    }
+    
+    pausedAt = seek; 
+    createAndStartSource();
   });
 
-  function setupAudioNodes(){
-    if(audioCtx&&audioCtx.state!=='closed')return;
-    audioCtx=new (window.AudioContext||window.webkitAudioContext)();
-    gainNode=audioCtx.createGain();
+  function setupAudioNodes() {
+    if (audioCtx && audioCtx.state !== 'closed') return;
+    
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    gainNode = audioCtx.createGain();
 
-    bass=audioCtx.createBiquadFilter();bass.type='lowshelf';bass.frequency.value=200;
-    mid =audioCtx.createBiquadFilter();mid.type='peaking';mid.frequency.value=1000;
-    treble=audioCtx.createBiquadFilter();treble.type='highshelf';treble.frequency.value=3000;
+    bass = audioCtx.createBiquadFilter();
+    bass.type = 'lowshelf';
+    bass.frequency.value = 200;
 
-    bass.connect(mid);mid.connect(treble);treble.connect(gainNode);gainNode.connect(audioCtx.destination);
-    gainNode.gain.value=volumeSlider.value;
+    mid = audioCtx.createBiquadFilter();
+    mid.type = 'peaking';
+    mid.frequency.value = 1000;
+
+    treble = audioCtx.createBiquadFilter();
+    treble.type = 'highshelf';
+    treble.frequency.value = 3000;
+
+    bass.connect(mid);
+    mid.connect(treble);
+    treble.connect(gainNode);
+    gainNode.connect(audioCtx.destination);
+    
+    gainNode.gain.value = volumeSlider.value;
   }
 
-  function createAndStartSource(){
-    if(!audioCtx)setupAudioNodes();
-    const li=playlist.children[currentIndex];
-    if(source){source.stop();source.disconnect();}
-    source=audioCtx.createBufferSource();
-    source.buffer=audioBuffers[currentIndex];
+  function createAndStartSource() {
+    if (!audioCtx) setupAudioNodes();
+    
+    const li = playlist.children[currentIndex];
+    
+    if (source) {
+      source.stop();
+      source.disconnect();
+    }
+    
+    source = audioCtx.createBufferSource();
+    source.buffer = audioBuffers[currentIndex];
     source.connect(bass);
-    startTime=audioCtx.currentTime-pausedAt;
-    source.start(0,pausedAt);
-
-    // mark current
-    trackInfo.textContent=`Now Playing: ${li.file.name}`;
-    [...playlist.children].forEach(li=>li.classList.remove('playing'));
+    
+    startTime = audioCtx.currentTime - pausedAt;
+    source.start(0, pausedAt);
+    
+    // Update UI
+    trackInfo.textContent = `Now Playing: ${li.file.name}`;
+    [...playlist.children].forEach(li => li.classList.remove('playing'));
     li.classList.add('playing');
 
-    if(animationFrame)cancelAnimationFrame(animationFrame);
+    if (animationFrame) cancelAnimationFrame(animationFrame);
     updateProgress();
-
-    source.onended=(()=>{ if(isPlaying)playNextTrack(); });
-  }
-
-  async function playSelectedTrack(){
-    stopAudio(); isPlaying=true;
-    if(!audioCtx)setupAudioNodes();
-    const li=playlist.children[currentIndex];
-    if(!audioBuffers[currentIndex]){
-      const arr=await li.file.arrayBuffer();
-      audioBuffers[currentIndex]=await audioCtx.decodeAudioData(arr);
-    }
-    pausedAt=0; createAndStartSource();
-  }
-
-  function stopAudio(){
-    if(source){source.stop();source.disconnect();source=null;}
-    pausedAt=0;isPlaying=false;
-    if(animationFrame)cancelAnimationFrame(animationFrame);
-    progressBar.style.width='0%';
-    currentTimeDisplay.textContent='0:00';
-  }
-
-  function crossfadeTracks(oldSource,newSource,d){
-    if(d<=0){oldSource.stop();oldSource.disconnect();newSource.connect(bass);newSource.start();source=newSource;return;}
-    const og=audioCtx.createGain(), ng=audioCtx.createGain();
-    oldSource.disconnect();oldSource.connect(og);og.connect(bass);
-    newSource.connect(ng);ng.connect(bass);
-    const t=audioCtx.currentTime;
-    og.gain.setValueAtTime(1,t); og.gain.linearRampToValueAtTime(0,t+d);
-    ng.gain.setValueAtTime(0,t); ng.gain.linearRampToValueAtTime(1,t+d);
-    newSource.start();oldSource.stop(t+d);
-    source=newSource;
-  }
-
-  function updateProgress(){
-    if(!source||!source.buffer)return;
-    const ct=pausedAt+(audioCtx.currentTime-startTime);
-    const dur=source.buffer.duration;
-    progressBar.style.width=`${(ct/dur)*100}%}`;
-    currentTimeDisplay.textContent=format(ct);
-    totalTimeDisplay.textContent=format(dur);
-
-    // ----- AUTO FADE -----
-    const cf=parseFloat(crossfadeInput.value);
-    if(dur-ct<=cf && !source.crossfading){
-      source.crossfading=true;
-      let next=currentIndex+1; if(next>=playlist.children.length)next=0;
-      const fileNext=playlist.children[next].file;
-      (async()=>{
-        if(!audioBuffers[next]){
-          const ab=await fileNext.arrayBuffer();
-          audioBuffers[next]=await audioCtx.decodeAudioData(ab);
+    
+    // Set up track end handler
+    source.onended = () => {
+      if (isPlaying) {
+        // Check if we should crossfade to next track
+        const crossfadeDuration = parseFloat(crossfadeInput.value);
+        if (crossfadeDuration > 0) {
+          playNextTrackWithCrossfade();
+        } else {
+          playNextTrack();
         }
-        const newS=audioCtx.createBufferSource();
-        newS.buffer=audioBuffers[next];
-        crossfadeTracks(source,newS,cf);
-        currentIndex=next;
-        newS.onended=()=>{ if(isPlaying)playNextTrack(); };
-      })();
-    }
-    if(isPlaying)animationFrame=requestAnimationFrame(updateProgress);
+      }
+    };
   }
 
-  function format(s){
-    const m=Math.floor(s/60),sec=Math.floor(s%60);
-    return`${m}:${sec<10?'0':''}${sec}`;
+  async function playSelectedTrack() {
+    stopAudio(); 
+    isPlaying = true;
+    
+    if (!audioCtx) setupAudioNodes();
+    
+    const li = playlist.children[currentIndex];
+    if (!audioBuffers[currentIndex]) {
+      const arrayBuffer = await li.file.arrayBuffer();
+      audioBuffers[currentIndex] = await audioCtx.decodeAudioData(arrayBuffer);
+    }
+    
+    pausedAt = 0; 
+    createAndStartSource();
   }
 
-  playBtn.addEventListener('click',async()=>{
-    if(audioCtx&&audioCtx.state==='suspended')await audioCtx.resume();
-    if(!isPlaying&&currentIndex>=0)await playSelectedTrack();
-    else if(!isPlaying&&currentIndex===-1&&playlist.children.length){currentIndex=0;await playSelectedTrack();}
-  });
+  function stopAudio() {
+    if (source) {
+      source.stop();
+      source.disconnect();
+      source = null;
+    }
+    if (nextSource) {
+      nextSource.stop();
+      nextSource.disconnect();
+      nextSource = null;
+    }
+    pausedAt = 0;
+    isPlaying = false;
+    isCrossfading = false;
+    if (animationFrame) cancelAnimationFrame(animationFrame);
+    progressBar.style.width = '0%';
+    currentTimeDisplay.textContent = '0:00';
+    status.textContent = '';
+  }
 
-  pauseBtn.addEventListener('click',()=>{
-    if(audioCtx&&source){
-      pausedAt+=audioCtx.currentTime-startTime;
-      source.stop();source.disconnect();source=null;
-      isPlaying=false;if(animationFrame)cancelAnimationFrame(animationFrame);
+  function crossfadeTracks(oldSource, newSource, duration) {
+    if (duration <= 0) {
+      if (oldSource) {
+        oldSource.stop();
+        oldSource.disconnect();
+      }
+      newSource.connect(bass);
+      newSource.start();
+      source = newSource;
+      return;
+    }
+
+    status.textContent = `Crossfading to next track...`;
+
+    const oldGain = audioCtx.createGain();
+    const newGain = audioCtx.createGain();
+
+    // Disconnect old source and connect through gain node
+    oldSource.disconnect();
+    oldSource.connect(oldGain);
+    oldGain.connect(bass);
+
+    // Connect new source through gain node
+    newSource.connect(newGain);
+    newGain.connect(bass);
+
+    const now = audioCtx.currentTime;
+    oldGain.gain.setValueAtTime(1, now);
+    oldGain.gain.linearRampToValueAtTime(0, now + duration);
+
+    newGain.gain.setValueAtTime(0, now);
+    newGain.gain.linearRampToValueAtTime(1, now + duration);
+
+    newSource.start();
+    
+    // Stop the old source after crossfade
+    oldSource.stop(now + duration);
+    
+    // Update our reference to the current source
+    source = newSource;
+    isCrossfading = false;
+    status.textContent = '';
+  }
+
+  async function playNextTrackWithCrossfade() {
+    if (playlist.children.length === 0) return;
+    
+    const nextIndex = (currentIndex + 1) % playlist.children.length;
+    const li = playlist.children[nextIndex];
+    
+    // Preload next track if not already loaded
+    if (!audioBuffers[nextIndex]) {
+      const arrayBuffer = await li.file.arrayBuffer();
+      audioBuffers[nextIndex] = await audioCtx.decodeAudioData(arrayBuffer);
+    }
+    
+    // Create the next source
+    nextSource = audioCtx.createBufferSource();
+    nextSource.buffer = audioBuffers[nextIndex];
+    
+    // Set up the next track's ended handler
+    nextSource.onended = () => {
+      if (isPlaying) {
+        playNextTrack();
+      }
+    };
+    
+    // Start crossfade
+    isCrossfading = true;
+    const crossfadeDuration = parseFloat(crossfadeInput.value);
+    crossfadeTracks(source, nextSource, crossfadeDuration);
+    
+    // Update current index and UI
+    currentIndex = nextIndex;
+    trackInfo.textContent = `Now Playing: ${li.file.name}`;
+    [...playlist.children].forEach(li => li.classList.remove('playing'));
+    li.classList.add('playing');
+    
+    // Reset progress tracking
+    pausedAt = 0;
+    startTime = audioCtx.currentTime;
+  }
+
+  function updateProgress() {
+    if (!source || !source.buffer) return;
+    
+    const currentTime = pausedAt + (audioCtx.currentTime - startTime);
+    const duration = source.buffer.duration;
+    const progressPercent = (currentTime / duration) * 100;
+    
+    progressBar.style.width = `${progressPercent}%`;
+    
+    // Update time displays
+    currentTimeDisplay.textContent = formatTime(currentTime);
+    totalTimeDisplay.textContent = formatTime(duration);
+    
+    // Check if we should start crossfade
+    const crossfadeDuration = parseFloat(crossfadeInput.value);
+    if (crossfadeDuration > 0 && 
+        duration - currentTime <= crossfadeDuration && 
+        isPlaying && 
+        !isCrossfading &&
+        playlist.children.length > 1) {
+      isCrossfading = true;
+      playNextTrackWithCrossfade();
+    }
+    
+    if (isPlaying) {
+      animationFrame = requestAnimationFrame(updateProgress);
+    }
+  }
+
+  function formatTime(seconds) {
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+  }
+
+  playBtn.addEventListener('click', async () => {
+    if (audioCtx && audioCtx.state === 'suspended') {
+      await audioCtx.resume();
+    }
+    
+    if (!isPlaying && currentIndex >= 0) {
+      await playSelectedTrack();
+    } else if (!isPlaying && currentIndex === -1 && playlist.children.length > 0) {
+      currentIndex = 0;
+      await playSelectedTrack();
     }
   });
 
-  stopBtn.addEventListener('click',()=>{
+  pauseBtn.addEventListener('click', () => {
+    if (audioCtx && source) {
+      pausedAt += audioCtx.currentTime - startTime;
+      source.stop();
+      source.disconnect();
+      source = null;
+      isPlaying = false;
+      if (animationFrame) cancelAnimationFrame(animationFrame);
+    }
+  });
+
+  stopBtn.addEventListener('click', () => {
     stopAudio();
-    trackInfo.textContent='Playback stopped';
-    [...playlist.children].forEach(li=>li.classList.remove('playing'));
+    trackInfo.textContent = 'Playback stopped';
+    [...playlist.children].forEach(li => li.classList.remove('playing'));
   });
 
-  prevBtn.addEventListener('click',()=>{ if(!playlist.children.length)return;
-    currentIndex--; if(currentIndex<0)currentIndex=playlist.children.length-1; playSelectedTrack();
+  prevBtn.addEventListener('click', () => { 
+    if (playlist.children.length === 0) return;
+    
+    currentIndex--;
+    if (currentIndex < 0) {
+      currentIndex = playlist.children.length - 1;
+    } 
+    playSelectedTrack();
   });
 
-  nextBtn.addEventListener('click',()=>{ playNextTrack(); });
+  nextBtn.addEventListener('click', () => { 
+    playNextTrack();
+  });
 
-  function playNextTrack(){
-    if(!playlist.children.length)return;
-    currentIndex++; if(currentIndex>=playlist.children.length)currentIndex=0; playSelectedTrack();
+  function playNextTrack() {
+    if (playlist.children.length === 0) return;
+    
+    currentIndex++;
+    if (currentIndex >= playlist.children.length) {
+      currentIndex = 0;
+    } 
+    playSelectedTrack();
   }
 
-  volumeSlider.addEventListener('input',()=>{ if(gainNode)gainNode.gain.setValueAtTime(volumeSlider.value,audioCtx.currentTime); });
-  bassSlider.addEventListener('input',()=>{ if(bass)bass.gain.value=bassSlider.value; });
-  midSlider.addEventListener('input',()=>{ if(mid)mid.gain.value=midSlider.value; });
-  trebleSlider.addEventListener('input',()=>{ if(treble)treble.gain.value=trebleSlider.value; });
+  volumeSlider.addEventListener('input', () => { 
+    if (gainNode) gainNode.gain.setValueAtTime(volumeSlider.value, audioCtx.currentTime); 
+  });
+  bassSlider.addEventListener('input', () => { if (bass) bass.gain.value = bassSlider.value; });
+  midSlider.addEventListener('input', () => { if (mid) mid.gain.value = midSlider.value; });
+  trebleSlider.addEventListener('input', () => { if (treble) treble.gain.value = trebleSlider.value; });
 </script>
 </body>
 </html>
