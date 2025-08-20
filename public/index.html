@@ -149,13 +149,12 @@
 
       const crossfade = parseFloat(crossfadeInput.value || '0');
       if (source) {
-        crossfadeTracks(source, newSource, crossfade);
-      } else {
-        gainNode.gain.setValueAtTime(volumeSlider.value, audioCtx.currentTime);
-        newSource.start();
-      }
-
-      source = newSource;
+  crossfadeTracks(source, newSource, crossfade);
+} else {
+  gainNode.gain.setValueAtTime(volumeSlider.value, audioCtx.currentTime);
+  newSource.start();
+  source = newSource;
+}
       source.start();
       isPlaying = true;
     }
