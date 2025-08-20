@@ -224,18 +224,12 @@
     updateProgress();
     
     // Set up track end handler
-    source.onended = () => {
-      if (isPlaying) {
-        // Check if we should crossfade to next track
-        const crossfadeDuration = parseFloat(crossfadeInput.value);
-        if (crossfadeDuration > 0) {
-          playNextTrackWithCrossfade();
-        } else {
-          playNextTrack();
-        }
-      }
-    };
+source.onended = () => {
+  if (isPlaying) {
+    // fallback safety: just move to next track normally
+    playNextTrack();
   }
+};
 
   async function playSelectedTrack() {
     stopAudio(); 
