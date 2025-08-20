@@ -2,54 +2,112 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>🎶 NextDev MP3 Player</title>
+<title>🎧 NextDev MP3 Player</title>
 <style>
-body { font-family: 'Segoe UI', sans-serif; background:#0d0d0d; color:#fff; display:flex; flex-direction:column; align-items:center; padding:20px;}
-h1 { text-align:center; color:#4a8cff; }
-#playlist { list-style:none; padding:0; max-height:250px; overflow-y:auto; width:300px; }
-#playlist li { padding:10px; margin:5px 0; background:#222; cursor:pointer; border-radius:8px; display:flex; align-items:center; gap:10px; transition:0.3s; }
-#playlist li.playing { background:#4a8cff; font-weight:bold; color:#fff; }
-#playlist li:hover { background:#333; }
+body {
+  font-family: 'Arial', sans-serif;
+  background: #111;
+  color: #fff;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+h1 { text-align: center; margin-bottom: 10px; }
+#playlist {
+  list-style: none;
+  padding: 0;
+  max-height: 200px;
+  overflow-y: auto;
+  width: 100%;
+  margin-bottom: 10px;
+}
+#playlist li {
+  padding: 8px 12px;
+  margin: 5px 0;
+  background: #222;
+  border-radius: 4px;
+  cursor: grab;
+  transition: background 0.2s;
+}
+#playlist li:hover { background: #444; }
+#playlist li.playing { background: #2a5a83; font-weight: bold; }
 
-#controls { display:flex; gap:10px; margin:15px; justify-content:center; flex-wrap:wrap; }
-button { padding:8px 12px; border:none; border-radius:6px; background:#222; color:#fff; cursor:pointer; transition:0.2s; }
-button:hover { background:#4a8cff; color:#fff; }
+.controls, .equalizer { display: flex; justify-content: center; gap: 10px; margin: 10px 0; flex-wrap: wrap; }
+input[type="range"] { width: 100px; }
+.slider-group { text-align: center; }
 
-#shuffleBtn.active, #repeatBtn.active { background:#4aff88; color:#000; }
+.track-info { margin: 10px 0; font-style: italic; color: #aaa; text-align: center; }
+.status { text-align: center; margin-top: 5px; color: #4a8cff; min-height: 20px; }
 
-#progressContainer { width:300px; height:8px; background:#333; border-radius:4px; margin:10px 0; cursor:pointer; }
-.progress-bar { height:100%; background: linear-gradient(90deg,#4a8cff,#4aff88); width:0%; border-radius:4px; transition:0.1s; }
+.progress-container { width: 100%; height: 6px; background: #333; border-radius: 3px; cursor: pointer; margin-bottom: 5px; }
+.progress-bar { height: 100%; background: #4a8cff; border-radius: 3px; width: 0%; }
+.time-display { display: flex; justify-content: space-between; width: 100%; font-size: 12px; color: #aaa; margin-bottom:10px; }
 
-.track-info { margin:10px 0; font-style:italic; color:#aaa; text-align:center; }
+/* Cassette animation */
+.cassette {
+  position: relative;
+  width: 250px;
+  height: 120px;
+  background: #222;
+  border: 4px solid #444;
+  border-radius: 10px;
+  margin: 10px 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px;
+}
+.reel {
+  width: 60px;
+  height: 60px;
+  border: 3px solid #888;
+  border-radius: 50%;
+  background: radial-gradient(circle at center, #666 0%, #222 70%);
+  position: relative;
+  animation: spin 2s linear infinite;
+}
+.reel::after {
+  content:'';
+  position:absolute;
+  width:8px; height:8px;
+  background:#222;
+  border-radius:50%;
+  top:50%; left:50%;
+  transform:translate(-50%,-50%);
+}
+@keyframes spin {
+  0% { transform: rotate(0deg);}
+  100% { transform: rotate(360deg);}
+}
+.cassette-body { flex:1; margin:0 10px; background:#333; border-radius:6px; }
 
-#cassette { width:120px; height:60px; background:#222; border-radius:6px; display:flex; justify-content:space-around; align-items:center; margin:15px 0; position:relative; }
-.reel { width:20px; height:20px; border:3px solid #4a8cff; border-radius:50%; animation: spin 2s linear infinite; }
-@keyframes spin { 0% { transform: rotate(0deg);} 100% { transform: rotate(360deg);} }
-
-input[type="range"] { width:100px; }
-.slider-group { text-align:center; margin:5px; }
-.status { text-align:center; height:20px; margin-top:10px; color:#4a8cff; }
-
-#equalizer { display:flex; justify-content:center; gap:10px; margin:10px 0; }
 </style>
 </head>
 <body>
-<h1>🎧 NextDev MP3 Player</h1>
 
+<h1>🎧 NextDev MP3 Player</h1>
 <input type="file" id="fileInput" multiple accept=".mp3" />
+
 <ul id="playlist"></ul>
 
-<div id="cassette"><div class="reel"></div><div class="reel"></div></div>
+<div class="cassette">
+  <div class="reel" id="reelLeft"></div>
+  <div class="cassette-body"></div>
+  <div class="reel" id="reelRight"></div>
+</div>
 
 <div class="track-info" id="trackInfo">No track selected</div>
 
-<div id="progressContainer"><div class="progress-bar" id="progressBar"></div></div>
-<div class="time-display" style="width:300px; display:flex; justify-content:space-between;">
+<div class="progress-container" id="progressContainer">
+  <div class="progress-bar" id="progressBar"></div>
+</div>
+<div class="time-display">
   <span id="currentTime">0:00</span>
   <span id="totalTime">0:00</span>
 </div>
 
-<div id="controls">
+<div class="controls">
   <button id="prevBtn">⏮️</button>
   <button id="playBtn">▶️</button>
   <button id="pauseBtn">⏸️</button>
@@ -57,18 +115,15 @@ input[type="range"] { width:100px; }
   <button id="nextBtn">⏭️</button>
   <button id="shuffleBtn">🔀</button>
   <button id="repeatBtn">🔁</button>
-  <input type="range" id="volume" min="0" max="1" step="0.01" value="0.7" />
+  <input type="range" id="volume" min="0" max="1" step="0.01" value="0.7"/>
+  <label>⏱️ Crossfade <input type="number" id="crossfadeDuration" value="5" min="0" max="30" /></label>
 </div>
 
-<div id="equalizer">
+<div class="equalizer">
   <div class="slider-group"><label>Bass</label><br><input type="range" id="bass" min="-40" max="40" value="0" /></div>
   <div class="slider-group"><label>Mid</label><br><input type="range" id="mid" min="-40" max="40" value="0" /></div>
   <div class="slider-group"><label>Treble</label><br><input type="range" id="treble" min="-40" max="40" value="0" /></div>
 </div>
-
-<label>⏱️ Crossfade Duration (sec):
-  <input type="number" id="crossfadeDuration" value="5" min="0" max="30" />
-</label>
 
 <div class="status" id="status"></div>
 
@@ -91,139 +146,196 @@ const crossfadeInput = document.getElementById('crossfadeDuration');
 const trackInfo = document.getElementById('trackInfo');
 const progressBar = document.getElementById('progressBar');
 const progressContainer = document.getElementById('progressContainer');
+const currentTimeDisplay = document.getElementById('currentTime');
+const totalTimeDisplay = document.getElementById('totalTime');
 const status = document.getElementById('status');
 
-let audioCtx, gainNode, bass, mid, treble;
-let audioBuffers=[], currentIndex=-1, isPlaying=false;
-let currentSource=null, nextSource=null;
-let startTime=0, pausedAt=0, animationFrame=null;
-let isCrossfading=false;
-let shuffle=false, repeat=false;
+let audioCtx, gainNode, source;
+let bass, mid, treble;
+let audioBuffers = [];
+let currentIndex = -1;
+let isPlaying = false;
+let startTime = 0;
+let pausedAt = 0;
+let animationFrame;
+let isCrossfading = false;
+let shuffle = false;
+let repeat = false;
 
-// Playlist
-fileInput.addEventListener('change',(e)=>{
-  for(const file of Array.from(e.target.files)){
-    const li=document.createElement('li'); li.textContent=file.name; li.file=file;
+// --- Playlist + Drag + Add ---
+fileInput.addEventListener('change', e => {
+  for (const file of Array.from(e.target.files)) {
+    const li = document.createElement('li');
+    li.textContent = file.name;
+    li.file = file;
     playlist.appendChild(li);
+    audioBuffers.push(null);
   }
 });
-new Sortable(playlist,{animation:150});
 
-// Shuffle & Repeat buttons
-shuffleBtn.addEventListener('click'=>{ shuffle=!shuffle; shuffleBtn.classList.toggle('active'); });
-repeatBtn.addEventListener('click'=>{ repeat=!repeat; repeatBtn.classList.toggle('active'); });
+new Sortable(playlist, {
+  animation: 150,
+  onEnd: function(evt){
+    const oldBuffers = [...audioBuffers];
+    audioBuffers = [];
+    [...playlist.children].forEach(li=>{
+      const idx = Array.from(evt.from.children).indexOf(li);
+      audioBuffers.push(oldBuffers[idx] || null);
+    });
+  }
+});
 
-function setupAudioCtx(){
-  if(audioCtx && audioCtx.state!=='closed') return;
-  audioCtx=new (window.AudioContext||window.webkitAudioContext)();
-  gainNode=audioCtx.createGain(); gainNode.gain.value=volumeSlider.value;
-  bass=audioCtx.createBiquadFilter(); bass.type='lowshelf'; bass.frequency.value=200;
-  mid=audioCtx.createBiquadFilter(); mid.type='peaking'; mid.frequency.value=1000;
-  treble=audioCtx.createBiquadFilter(); treble.type='highshelf'; treble.frequency.value=3000;
+// --- Audio setup ---
+function setupAudioNodes() {
+  if(audioCtx && audioCtx.state !== 'closed') return;
+  audioCtx = new (window.AudioContext||window.webkitAudioContext)();
+  gainNode = audioCtx.createGain();
+
+  bass = audioCtx.createBiquadFilter(); bass.type='lowshelf'; bass.frequency.value=200;
+  mid = audioCtx.createBiquadFilter(); mid.type='peaking'; mid.frequency.value=1000;
+  treble = audioCtx.createBiquadFilter(); treble.type='highshelf'; treble.frequency.value=3000;
+
   bass.connect(mid); mid.connect(treble); treble.connect(gainNode); gainNode.connect(audioCtx.destination);
+  gainNode.gain.value = volumeSlider.value;
 }
 
-async function playTrack(index,resume=false){
-  if(playlist.children.length===0) return;
-  stopAllSources();
-  setupAudioCtx();
-  currentIndex=index;
+async function playTrack(index){
+  stopAudio(false);
+  if(!audioCtx) setupAudioNodes();
+  currentIndex = index;
 
-  const li=playlist.children[index];
-  if(!audioBuffers[index]){
-    const arrayBuffer=await li.file.arrayBuffer();
-    audioBuffers[index]=await audioCtx.decodeAudioData(arrayBuffer);
+  const li = playlist.children[currentIndex];
+  if(!audioBuffers[currentIndex]){
+    const arrayBuffer = await li.file.arrayBuffer();
+    audioBuffers[currentIndex] = await audioCtx.decodeAudioData(arrayBuffer);
   }
 
-  currentSource=audioCtx.createBufferSource();
-  currentSource.buffer=audioBuffers[index];
-  currentSource.connect(bass);
-  startTime=audioCtx.currentTime-(resume?pausedAt:0);
-  currentSource.start(0,resume?pausedAt:0);
-  isPlaying=true; pausedAt=0;
-  updateUI();
+  source = audioCtx.createBufferSource();
+  source.buffer = audioBuffers[currentIndex];
+  source.connect(bass);
+  startTime = audioCtx.currentTime - pausedAt;
+  source.start(0, pausedAt);
+  isPlaying = true;
 
-  currentSource.onended=()=>{ if(!isCrossfading) nextTrack(); };
-  requestAnimationFrame(updateProgress);
+  [...playlist.children].forEach(li=>li.classList.remove('playing'));
+  li.classList.add('playing');
+  trackInfo.textContent = `Now Playing: ${li.file.name}`;
+
+  if(animationFrame) cancelAnimationFrame(animationFrame);
+  updateProgress();
+
+  source.onended = () => {
+    if(isPlaying) nextTrack();
+  };
+}
+
+function stopAudio(resetUI=true){
+  if(source){ source.stop(); source.disconnect(); source=null; }
+  pausedAt = 0; isPlaying=false; isCrossfading=false;
+  if(animationFrame) cancelAnimationFrame(animationFrame);
+  if(resetUI){
+    progressBar.style.width='0%';
+    currentTimeDisplay.textContent='0:00';
+    status.textContent='';
+  }
 }
 
 function nextTrack(){
   let nextIndex;
   if(shuffle){
-    do{ nextIndex=Math.floor(Math.random()*playlist.children.length);}while(nextIndex===currentIndex && playlist.children.length>1);
-  }else{
-    nextIndex=(currentIndex+1)%playlist.children.length;
-    if(nextIndex===0 && !repeat) { isPlaying=false; return; }
+    nextIndex = Math.floor(Math.random()*playlist.children.length);
+  } else {
+    nextIndex = currentIndex+1;
+    if(nextIndex>=playlist.children.length){
+      if(repeat) nextIndex=0;
+      else return stopAudio();
+    }
   }
-  crossfadeTo(nextIndex);
+  crossfadeToNext(nextIndex);
 }
 
-async function crossfadeTo(nextIndex){
-  if(playlist.children.length<=1) return;
-  isCrossfading=true; status.textContent='Crossfading...';
-
-  const li=playlist.children[nextIndex];
+// --- Crossfade ---
+async function crossfadeToNext(nextIndex){
+  if(!playlist.children[nextIndex]) return;
+  const oldSource = source;
+  const li = playlist.children[nextIndex];
   if(!audioBuffers[nextIndex]){
-    const arrayBuffer=await li.file.arrayBuffer();
-    audioBuffers[nextIndex]=await audioCtx.decodeAudioData(arrayBuffer);
+    const arrayBuffer = await li.file.arrayBuffer();
+    audioBuffers[nextIndex] = await audioCtx.decodeAudioData(arrayBuffer);
+  }
+  const newSource = audioCtx.createBufferSource();
+  newSource.buffer = audioBuffers[nextIndex];
+  newSource.connect(bass);
+
+  const fade = parseFloat(crossfadeInput.value||'0');
+  if(fade>0){
+    isCrossfading=true;
+    const oldGain = audioCtx.createGain();
+    const newGain = audioCtx.createGain();
+    oldSource.disconnect(); oldSource.connect(oldGain); oldGain.connect(bass);
+    newSource.disconnect(); newSource.connect(newGain); newGain.connect(bass);
+
+    const now = audioCtx.currentTime;
+    oldGain.gain.setValueAtTime(1,now);
+    oldGain.gain.linearRampToValueAtTime(0,now+fade);
+    newGain.gain.setValueAtTime(0,now);
+    newGain.gain.linearRampToValueAtTime(1,now+fade);
+
+    newSource.start();
+    oldSource.stop(now+fade);
+    source=newSource;
+    currentIndex=nextIndex;
+    isCrossfading=false;
+  } else {
+    playTrack(nextIndex);
   }
 
-  nextSource=audioCtx.createBufferSource();
-  nextSource.buffer=audioBuffers[nextIndex];
-
-  const oldGain=audioCtx.createGain();
-  const newGain=audioCtx.createGain();
-
-  currentSource.disconnect(); currentSource.connect(oldGain); oldGain.connect(bass);
-  nextSource.connect(newGain); newGain.connect(bass);
-
-  const duration=parseFloat(crossfadeInput.value)||0;
-  const now=audioCtx.currentTime;
-  oldGain.gain.setValueAtTime(1,now); oldGain.gain.linearRampToValueAtTime(0,now+duration);
-  newGain.gain.setValueAtTime(0,now); newGain.gain.linearRampToValueAtTime(1,now+duration);
-
-  startTime=audioCtx.currentTime; pausedAt=0; currentIndex=nextIndex; updateUI();
-  nextSource.onended=()=>{ if(!isCrossfading) nextTrack(); };
-  nextSource.start();
-
-  setTimeout(()=>{ stopSource(currentSource); currentSource=nextSource; nextSource=null; isCrossfading=false; status.textContent=''; }, duration*1000);
+  [...playlist.children].forEach(li=>li.classList.remove('playing'));
+  li.classList.add('playing');
+  trackInfo.textContent=`Now Playing: ${li.file.name}`;
+  pausedAt=0; startTime=audioCtx.currentTime;
 }
 
-function stopSource(source){ if(!source) return; try{ source.stop(); source.disconnect();}catch(e){} }
-function stopAllSources(){ stopSource(currentSource); stopSource(nextSource); currentSource=null; nextSource=null; isPlaying=false; isCrossfading=false; pausedAt=0; progressBar.style.width='0%'; status.textContent=''; }
-
+// --- Progress & UI ---
 function updateProgress(){
-  if(!currentSource || !currentSource.buffer) return;
-  const currentTime=pausedAt+(audioCtx.currentTime-startTime);
-  const duration=currentSource.buffer.duration;
-  const percent=(currentTime/duration)*100;
-  progressBar.style.width=percent+'%';
-  document.getElementById('currentTime').textContent=formatTime(currentTime);
-  document.getElementById('totalTime').textContent=formatTime(duration);
-  if(isPlaying && !isCrossfading && duration-currentTime<=parseFloat(crossfadeInput.value||0) && playlist.children.length>1){
+  if(!source || !source.buffer) return;
+  const curTime = pausedAt + (audioCtx.currentTime-startTime);
+  const dur = source.buffer.duration;
+  progressBar.style.width=`${(curTime/dur)*100}%`;
+  currentTimeDisplay.textContent=formatTime(curTime);
+  totalTimeDisplay.textContent=formatTime(dur);
+
+  if(parseFloat(crossfadeInput.value)>0 && dur-curTime<=parseFloat(crossfadeInput.value) && !isCrossfading && playlist.children.length>1){
     nextTrack();
   }
-  if(isPlaying) requestAnimationFrame(updateProgress);
-}
 
-function updateUI(){
-  [...playlist.children].forEach(i=>i.classList.remove('playing'));
-  playlist.children[currentIndex].classList.add('playing');
-  trackInfo.textContent='Now Playing: '+playlist.children[currentIndex].file.name;
+  if(isPlaying) animationFrame=requestAnimationFrame(updateProgress);
 }
-
 function formatTime(sec){ const m=Math.floor(sec/60); const s=Math.floor(sec%60); return `${m}:${s<10?'0':''}${s}`; }
 
-playBtn.addEventListener('click',async()=>{ if(audioCtx && audioCtx.state==='suspended') await audioCtx.resume(); if(!isPlaying && currentIndex>=0) playTrack(currentIndex); else if(!isPlaying && currentIndex===-1 && playlist.children.length>0) playTrack(0); });
-pauseBtn.addEventListener('click',()=>{ if(currentSource){ pausedAt+=audioCtx.currentTime-startTime; stopSource(currentSource); currentSource=null; isPlaying=false; } });
-stopBtn.addEventListener('click',()=>{ stopAllSources(); trackInfo.textContent='Playback stopped'; });
-prevBtn.addEventListener('click',()=>{ let prev=(currentIndex-1+playlist.children.length)%playlist.children.length; crossfadeTo(prev); });
+// --- Controls ---
+playBtn.addEventListener('click',()=>{ if(!isPlaying) playTrack(currentIndex>=0?currentIndex:0); });
+pauseBtn.addEventListener('click',()=>{ if(isPlaying){ pausedAt+=audioCtx.currentTime-startTime; source.stop(); isPlaying=false; } });
+stopBtn.addEventListener('click',()=>{ stopAudio(); });
+prevBtn.addEventListener('click',()=>{ let i=currentIndex-1; if(i<0) i=playlist.children.length-1; crossfadeToNext(i); });
 nextBtn.addEventListener('click',()=>{ nextTrack(); });
+shuffleBtn.addEventListener('click',()=>{ shuffle=!shuffle; shuffleBtn.style.background=shuffle?'#4a8cff':'none'; });
+repeatBtn.addEventListener('click',()=>{ repeat=!repeat; repeatBtn.style.background=repeat?'#4a8cff':'none'; });
 
 volumeSlider.addEventListener('input',()=>{ if(gainNode) gainNode.gain.setValueAtTime(volumeSlider.value,audioCtx.currentTime); });
 bassSlider.addEventListener('input',()=>{ if(bass) bass.gain.value=bassSlider.value; });
 midSlider.addEventListener('input',()=>{ if(mid) mid.gain.value=midSlider.value; });
 trebleSlider.addEventListener('input',()=>{ if(treble) treble.gain.value=trebleSlider.value; });
+
+// --- Seek by progress bar ---
+progressContainer.addEventListener('click', e=>{
+  if(!source||!source.buffer) return;
+  const rect=progressContainer.getBoundingClientRect();
+  const pos=(e.clientX-rect.left)/rect.width;
+  pausedAt=pos*source.buffer.duration;
+  playTrack(currentIndex);
+});
 </script>
+
 </body>
 </html>
