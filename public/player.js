@@ -44,9 +44,36 @@ fileInput.addEventListener('change', e => {
     li.file = file;
     playlist.appendChild(li);
   }
+  
+  // Reinitialize sortable after adding files
+  initializeSortable();
 });
 
-new Sortable(playlist, { animation: 150 });
+// Initialize sortable playlist
+function initializeSortable() {
+  if (window.Sortable && playlist) {
+    new Sortable(playlist, {
+      animation: 150,
+      ghostClass: 'sortable-ghost',
+      chosenClass: 'sortable-chosen',
+      dragClass: 'sortable-drag',
+      onStart: function(evt) {
+        evt.item.style.opacity = '0.5';
+      },
+      onEnd: function(evt) {
+        evt.item.style.opacity = '1';
+        // Update current index if the currently playing track was moved
+        const playingItem = playlist.querySelector('.playing');
+        if (playingItem) {
+          currentIndex = [...playlist.children].indexOf(playingItem);
+        }
+      }
+    });
+  }
+}
+
+// Initialize sortable when DOM is ready
+document.addEventListener('DOMContentLoaded', initializeSortable);
 
 playlist.addEventListener('click', async e => {
   if (e.target.tagName === 'LI') {
