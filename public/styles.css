@@ -233,6 +233,11 @@ h1 {
   border-left: 4px solid transparent;
   transition: all 0.3s ease;
   font-size: 14px;
+  user-select: none;
+}
+
+#playlist li:active {
+  cursor: grabbing;
 }
 
 #playlist li:hover {
@@ -247,6 +252,22 @@ h1 {
   font-weight: bold;
   box-shadow: 0 0 20px rgba(50, 205, 50, 0.3);
   animation: pulse 2s ease-in-out infinite alternate;
+}
+
+/* Sortable.js classes */
+.sortable-ghost {
+  opacity: 0.5;
+  background: linear-gradient(145deg, #555, #666) !important;
+  transform: rotate(2deg);
+}
+
+.sortable-chosen {
+  cursor: grabbing !important;
+}
+
+.sortable-drag {
+  transform: rotate(5deg);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5) !important;
 }
 
 @keyframes pulse {
