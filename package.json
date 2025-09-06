@@ -3,8 +3,12 @@
   "version": "1.0.0",
   "description": "NextAmp Web MP3 Player served with Express",
   "main": "server.js",
+  "type": "module",
   "scripts": {
     "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=16.0.0"
   },
   "author": "NextDev Academy",
   "license": "MIT",
