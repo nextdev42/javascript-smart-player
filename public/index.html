@@ -95,152 +95,332 @@ const rightReel = document.getElementById('rightReel');
 
 let audioCtx, currentSource, gainNode, bass, mid, treble;
 let audioBuffers = [];
-let currentIndex = -1, isPlaying=false;
-let startTime=0, pausedAt=0, animationFrame;
-let shuffle=false, repeat=false;
+let currentIndex = -1, isPlaying = false;
+let startTime = 0, pausedAt = 0, animationFrame;
+let shuffle = false, repeat = false;
+let crossfadeTriggered = false;
 
 // --- Playlist setup ---
-fileInput.addEventListener('change', e=>{
-  for(const file of Array.from(e.target.files)){
-    const li=document.createElement('li');
-    li.textContent=file.name;
-    li.file=file;
+fileInput.addEventListener('change', e => {
+  for (const file of Array.from(e.target.files)) {
+    const li = document.createElement('li');
+    li.textContent = file.name;
+    li.file = file;
     playlist.appendChild(li);
   }
 });
-new Sortable(playlist,{animation:150});
-playlist.addEventListener('click', async e=>{
-  if(e.target.tagName==='LI'){
-    currentIndex=[...playlist.children].indexOf(e.target);
+
+new Sortable(playlist, { animation: 150 });
+
+playlist.addEventListener('click', async e => {
+  if (e.target.tagName === 'LI') {
+    currentIndex = [...playlist.children].indexOf(e.target);
     await playTrack(currentIndex);
   }
 });
 
 // --- Audio setup ---
 function setupAudio() {
-  if(audioCtx) return;
-  audioCtx = new (window.AudioContext||window.webkitAudioContext)();
+  if (audioCtx) return;
+  audioCtx = new (window.AudioContext || window.webkitAudioContext)();
   gainNode = audioCtx.createGain();
-  bass=audioCtx.createBiquadFilter(); bass.type='lowshelf'; bass.frequency.value=200;
-  mid=audioCtx.createBiquadFilter(); mid.type='peaking'; mid.frequency.value=1000;
-  treble=audioCtx.createBiquadFilter(); treble.type='highshelf'; treble.frequency.value=3000;
-  bass.connect(mid); mid.connect(treble); treble.connect(gainNode); gainNode.connect(audioCtx.destination);
-  gainNode.gain.value=volumeSlider.value;
+  bass = audioCtx.createBiquadFilter(); 
+  bass.type = 'lowshelf'; 
+  bass.frequency.value = 200;
+  mid = audioCtx.createBiquadFilter(); 
+  mid.type = 'peaking'; 
+  mid.frequency.value = 1000;
+  treble = audioCtx.createBiquadFilter(); 
+  treble.type = 'highshelf'; 
+  treble.frequency.value = 3000;
+  
+  bass.connect(mid); 
+  mid.connect(treble); 
+  treble.connect(gainNode); 
+  gainNode.connect(audioCtx.destination);
+  gainNode.gain.value = volumeSlider.value;
 }
 
-async function loadBuffer(index){
-  if(audioBuffers[index]) return audioBuffers[index];
-  const file=playlist.children[index].file;
-  const arrayBuffer=await file.arrayBuffer();
-  const buffer=await audioCtx.decodeAudioData(arrayBuffer);
-  audioBuffers[index]=buffer;
+async function loadBuffer(index) {
+  if (audioBuffers[index]) return audioBuffers[index];
+  const file = playlist.children[index].file;
+  const arrayBuffer = await file.arrayBuffer();
+  const buffer = await audioCtx.decodeAudioData(arrayBuffer);
+  audioBuffers[index] = buffer;
   return buffer;
 }
 
 // --- Play Track ---
-async function playTrack(index){
+async function playTrack(index, seekPosition = 0) {
   stopCurrent();
-  if(!audioCtx) setupAudio();
-  const buffer=await loadBuffer(index);
-  currentSource=audioCtx.createBufferSource();
-  currentSource.buffer=buffer;
+  if (!audioCtx) setupAudio();
+  
+  const buffer = await loadBuffer(index);
+  currentSource = audioCtx.createBufferSource();
+  currentSource.buffer = buffer;
   currentSource.connect(bass);
-  currentSource.start(0,0);
-  startTime=audioCtx.currentTime;
-  isPlaying=true;
+  currentSource.start(0, seekPosition);
+  
+  startTime = audioCtx.currentTime - seekPosition;
+  isPlaying = true;
+  crossfadeTriggered = false;
+  
   updateUI();
-  currentSource.onended=()=>{ if(isPlaying) nextTrack(true); };
+  
+  currentSource.onended = () => { 
+    if (isPlaying && !crossfadeTriggered) {
+      nextTrack(true);
+    }
+  };
+  
   spinReels(true);
 }
 
-function stopCurrent(){
-  if(currentSource){ currentSource.stop(); currentSource.disconnect(); currentSource=null; }
-  isPlaying=false;
+function stopCurrent() {
+  if (currentSource) { 
+    try {
+      currentSource.stop(); 
+    } catch (e) {
+      // Source may already be stopped
+    }
+    currentSource.disconnect(); 
+    currentSource = null; 
+  }
+  isPlaying = false;
+  crossfadeTriggered = false;
   spinReels(false);
 }
 
-function updateUI(){
-  const li=playlist.children[currentIndex];
-  [...playlist.children].forEach(li=>li.classList.remove('playing'));
-  if(li) li.classList.add('playing');
-  trackInfo.textContent=li?li.file.name:'No track';
-  if(animationFrame) cancelAnimationFrame(animationFrame);
+function updateUI() {
+  const li = playlist.children[currentIndex];
+  [...playlist.children].forEach(li => li.classList.remove('playing'));
+  if (li) li.classList.add('playing');
+  trackInfo.textContent = li ? li.file.name : 'No track';
+  if (animationFrame) cancelAnimationFrame(animationFrame);
   updateProgress();
 }
 
-function updateProgress(){
-  if(!currentSource||!currentSource.buffer) return;
-  const elapsed=audioCtx.currentTime-startTime;
-  const duration=currentSource.buffer.duration;
-  progressBar.style.width=Math.min((elapsed/duration)*100,100)+'%';
-  currentTimeDisplay.textContent=formatTime(elapsed);
-  totalTimeDisplay.textContent=formatTime(duration);
-  const crossfade=parseFloat(crossfadeInput.value||'0');
-  if(crossfade>0 && duration-elapsed<=crossfade && isPlaying) nextTrack(true);
-  if(isPlaying) animationFrame=requestAnimationFrame(updateProgress);
+function updateProgress() {
+  if (!currentSource || !currentSource.buffer) return;
+  
+  const elapsed = audioCtx.currentTime - startTime;
+  const duration = currentSource.buffer.duration;
+  progressBar.style.width = Math.min((elapsed / duration) * 100, 100) + '%';
+  currentTimeDisplay.textContent = formatTime(elapsed);
+  totalTimeDisplay.textContent = formatTime(duration);
+  
+  // Check for crossfade trigger
+  const crossfade = parseFloat(crossfadeInput.value || '0');
+  if (crossfade > 0 && duration - elapsed <= crossfade && isPlaying && !crossfadeTriggered) {
+    crossfadeTriggered = true;
+    nextTrack(true);
+  }
+  
+  if (isPlaying) {
+    animationFrame = requestAnimationFrame(updateProgress);
+  }
 }
 
-function formatTime(sec){ const m=Math.floor(sec/60); const s=Math.floor(sec%60); return `${m}:${s<10?'0':''}${s}`; }
+function formatTime(sec) { 
+  const m = Math.floor(sec / 60); 
+  const s = Math.floor(sec % 60); 
+  return `${m}:${s < 10 ? '0' : ''}${s}`; 
+}
 
-function crossfadeTracks(oldSrc,newSrc,duration){
-  const oldGain=audioCtx.createGain(), newGain=audioCtx.createGain();
-  oldSrc.disconnect(); oldSrc.connect(oldGain); oldGain.connect(bass);
-  newSrc.connect(newGain); newGain.connect(bass);
-  const now=audioCtx.currentTime;
-  oldGain.gain.setValueAtTime(1,now); oldGain.gain.linearRampToValueAtTime(0,now+duration);
-  newGain.gain.setValueAtTime(0,now); newGain.gain.linearRampToValueAtTime(1,now+duration);
-  newSrc.start();
-  oldSrc.stop(now+duration);
-  currentSource=newSrc;
+async function crossfadeTracks(oldSource, newIndex, crossfadeDuration) {
+  try {
+    // Load the new track buffer
+    const newBuffer = await loadBuffer(newIndex);
+    
+    // Create new source for the next track
+    const newSource = audioCtx.createBufferSource();
+    newSource.buffer = newBuffer;
+    
+    // Create separate gain nodes for crossfading
+    const oldGain = audioCtx.createGain();
+    const newGain = audioCtx.createGain();
+    
+    // Reconnect old source through its gain node
+    oldSource.disconnect();
+    oldSource.connect(oldGain);
+    oldGain.connect(bass);
+    
+    // Connect new source through its gain node
+    newSource.connect(newGain);
+    newGain.connect(bass);
+    
+    // Set up crossfade timing
+    const now = audioCtx.currentTime;
+    
+    // Fade out old track
+    oldGain.gain.setValueAtTime(1, now);
+    oldGain.gain.linearRampToValueAtTime(0, now + crossfadeDuration);
+    
+    // Fade in new track
+    newGain.gain.setValueAtTime(0, now);
+    newGain.gain.linearRampToValueAtTime(1, now + crossfadeDuration);
+    
+    // Start the new track
+    newSource.start(0, 0);
+    
+    // Stop the old track after crossfade completes
+    setTimeout(() => {
+      try {
+        oldSource.stop();
+      } catch (e) {
+        // Source may already be stopped
+      }
+    }, crossfadeDuration * 1000);
+    
+    // Update current source reference
+    currentSource = newSource;
+    
+    // Reset timing for the new track
+    startTime = audioCtx.currentTime;
+    
+    // Set up ended handler for the new track
+    newSource.onended = () => { 
+      if (isPlaying && !crossfadeTriggered) {
+        nextTrack(true);
+      }
+    };
+    
+    status.textContent = `Crossfading to next track (${crossfadeDuration}s)`;
+    setTimeout(() => {
+      status.textContent = '';
+    }, 2000);
+    
+    return true;
+  } catch (error) {
+    console.error('Crossfade error:', error);
+    status.textContent = 'Crossfade failed, switching normally';
+    return false;
+  }
 }
 
 // --- Next/Prev ---
-async function nextTrack(auto=false){
-  if(playlist.children.length===0) return;
+async function nextTrack(auto = false) {
+  if (playlist.children.length === 0) return;
+  
   let nextIndex;
-  if(shuffle) nextIndex=Math.floor(Math.random()*playlist.children.length);
-  else { nextIndex=currentIndex+1; if(nextIndex>=playlist.children.length){ if(repeat) nextIndex=0; else { stopCurrent(); return; } } }
-  const crossfade=parseFloat(crossfadeInput.value||'0');
-  if(auto && crossfade>0 && currentSource){
-    const old=currentSource;
-    currentIndex=nextIndex;
-    const buffer=await loadBuffer(nextIndex);
-    const newSrc=audioCtx.createBufferSource(); newSrc.buffer=buffer;
-    crossfadeTracks(old,newSrc,crossfade);
-    updateUI();
-    newSrc.onended=()=>{ if(isPlaying) nextTrack(true); };
-  } else { currentIndex=nextIndex; await playTrack(nextIndex); }
+  if (shuffle) {
+    nextIndex = Math.floor(Math.random() * playlist.children.length);
+  } else {
+    nextIndex = currentIndex + 1;
+    if (nextIndex >= playlist.children.length) {
+      if (repeat) {
+        nextIndex = 0;
+      } else {
+        stopCurrent();
+        return;
+      }
+    }
+  }
+  
+  const crossfadeDuration = parseFloat(crossfadeInput.value || '0');
+  
+  if (auto && crossfadeDuration > 0 && currentSource && isPlaying) {
+    // Perform crossfade
+    const oldSource = currentSource;
+    const oldIndex = currentIndex;
+    currentIndex = nextIndex;
+    
+    const success = await crossfadeTracks(oldSource, nextIndex, crossfadeDuration);
+    
+    if (success) {
+      updateUI();
+    } else {
+      // Fallback to normal track change
+      await playTrack(nextIndex);
+    }
+  } else {
+    // Normal track change without crossfade
+    currentIndex = nextIndex;
+    await playTrack(nextIndex);
+  }
 }
 
-async function prevTrack(){ if(playlist.children.length===0) return; currentIndex=currentIndex-1<0?playlist.children.length-1:currentIndex-1; await playTrack(currentIndex); }
+async function prevTrack() { 
+  if (playlist.children.length === 0) return; 
+  currentIndex = currentIndex - 1 < 0 ? playlist.children.length - 1 : currentIndex - 1; 
+  await playTrack(currentIndex); 
+}
 
 // --- Controls ---
-playBtn.addEventListener('click', async()=>{ if(audioCtx&&audioCtx.state==='suspended') await audioCtx.resume(); if(!isPlaying) { if(currentIndex<0) currentIndex=0; await playTrack(currentIndex); } });
-pauseBtn.addEventListener('click', ()=>{ if(isPlaying){ pausedAt=audioCtx.currentTime-startTime; currentSource.stop(); isPlaying=false; spinReels(false); }});
-stopBtn.addEventListener('click', stopCurrent);
-nextBtn.addEventListener('click', ()=>nextTrack(false));
+playBtn.addEventListener('click', async () => { 
+  if (audioCtx && audioCtx.state === 'suspended') await audioCtx.resume(); 
+  if (!isPlaying) { 
+    if (currentIndex < 0) currentIndex = 0; 
+    await playTrack(currentIndex, pausedAt); 
+    pausedAt = 0;
+  } 
+});
+
+pauseBtn.addEventListener('click', () => { 
+  if (isPlaying) { 
+    pausedAt = audioCtx.currentTime - startTime; 
+    currentSource.stop(); 
+    isPlaying = false; 
+    spinReels(false); 
+  }
+});
+
+stopBtn.addEventListener('click', () => {
+  stopCurrent();
+  pausedAt = 0;
+});
+
+nextBtn.addEventListener('click', () => nextTrack(false));
 prevBtn.addEventListener('click', prevTrack);
-shuffleBtn.addEventListener('click', ()=>{ shuffle=!shuffle; shuffleBtn.style.background=shuffle?'#4a8cff':'#222'; });
-repeatBtn.addEventListener('click', ()=>{ repeat=!repeat; repeatBtn.style.background=repeat?'#4a8cff':'#222'; });
-volumeSlider.addEventListener('input', ()=>{ if(gainNode) gainNode.gain.setValueAtTime(volumeSlider.value,audioCtx.currentTime); });
-bassSlider.addEventListener('input', ()=>{ if(bass) bass.gain.value=bassSlider.value; });
-midSlider.addEventListener('input', ()=>{ if(mid) mid.gain.value=midSlider.value; });
-trebleSlider.addEventListener('input', ()=>{ if(treble) treble.gain.value=trebleSlider.value; });
+
+shuffleBtn.addEventListener('click', () => { 
+  shuffle = !shuffle; 
+  shuffleBtn.style.background = shuffle ? '#4a8cff' : '#222'; 
+});
+
+repeatBtn.addEventListener('click', () => { 
+  repeat = !repeat; 
+  repeatBtn.style.background = repeat ? '#4a8cff' : '#222'; 
+});
+
+volumeSlider.addEventListener('input', () => { 
+  if (gainNode) gainNode.gain.setValueAtTime(volumeSlider.value, audioCtx.currentTime); 
+});
+
+bassSlider.addEventListener('input', () => { 
+  if (bass) bass.gain.value = bassSlider.value; 
+});
+
+midSlider.addEventListener('input', () => { 
+  if (mid) mid.gain.value = midSlider.value; 
+});
+
+trebleSlider.addEventListener('input', () => { 
+  if (treble) treble.gain.value = trebleSlider.value; 
+});
 
 // --- Reel animation ---
-function spinReels(on){ if(on){ leftReel.classList.add('spinning'); rightReel.classList.add('spinning'); } else { leftReel.classList.remove('spinning'); rightReel.classList.remove('spinning'); } }
+function spinReels(on) { 
+  if (on) { 
+    leftReel.classList.add('spinning'); 
+    rightReel.classList.add('spinning'); 
+  } else { 
+    leftReel.classList.remove('spinning'); 
+    rightReel.classList.remove('spinning'); 
+  } 
+}
 
 // --- Progress click seek ---
-progressContainer.addEventListener('click', e=>{
-  if(!currentSource||!currentSource.buffer) return;
-  const rect=progressContainer.getBoundingClientRect();
-  const clickPos=(e.clientX-rect.left)/rect.width;
-  const seekTime=clickPos*currentSource.buffer.duration;
-  currentSource.stop();
-  currentSource.disconnect();
-  currentSource=null;
-  pausedAt=seekTime;
-  playTrack(currentIndex);
+progressContainer.addEventListener('click', e => {
+  if (!currentSource || !currentSource.buffer) return;
+  const rect = progressContainer.getBoundingClientRect();
+  const clickPos = (e.clientX - rect.left) / rect.width;
+  const seekTime = clickPos * currentSource.buffer.duration;
+  
+  pausedAt = seekTime;
+  if (isPlaying) {
+    playTrack(currentIndex, seekTime);
+  }
 });
 </script>
 </body>
