@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>🎵 DubMaster - Reggae Cassette Player</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<h1>🎵 DubMaster Cassette Player</h1>
+<div id="player">
+  <input type="file" id="fileInput" multiple accept=".mp3" placeholder="Load your dub tracks...">
+  
+  <div id="cassette">
+    <div class="tape-window">
+      <div class="tape" id="tapeAnimation"></div>
+    </div>
+    <div class="reel left" id="leftReel"></div>
+    <div class="reel right" id="rightReel"></div>
+  </div>
+  
+  <div class="track-info" id="trackInfo">Select your riddim...</div>
+
+  <div class="progress-container" id="progressContainer">
+    <div class="progress-bar" id="progressBar"></div>
+  </div>
+  <div class="time-display">
+    <span id="currentTime">0:00</span>
+    <span id="totalTime">0:00</span>
+  </div>
+
+  <div id="controls">
+    <button id="prevBtn">⏮️ Prev</button>
+    <button id="playBtn">▶️ Play</button>
+    <button id="pauseBtn">⏸️ Pause</button>
+    <button id="stopBtn">⏹️ Stop</button>
+    <button id="nextBtn">⏭️ Next</button>
+    <button id="shuffleBtn">🔀 Shuffle</button>
+    <button id="repeatBtn">🔁 Repeat</button>
+    <input type="range" id="volume" min="0" max="1" step="0.01" value="0.7" title="Volume">
+  </div>
+
+  <div id="equalizer">
+    <div>
+      <label>🔊 Bass</label>
+      <input type="range" id="bass" min="-40" max="40" value="0">
+    </div>
+    <div>
+      <label>🎵 Mid</label>
+      <input type="range" id="mid" min="-40" max="40" value="0">
+    </div>
+    <div>
+      <label>🎶 Treble</label>
+      <input type="range" id="treble" min="-40" max="40" value="0">
+    </div>
+  </div>
+
+  <div class="crossfade-control">
+    <label>⏱️ Dub Crossfade (seconds)</label>
+    <input type="number" id="crossfadeDuration" value="3" min="0" max="10">
+  </div>
+
+  <ul id="playlist"></ul>
+  
+  <div class="status" id="status"></div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+<script src="player.js"></script>
+</body>
+</html>
