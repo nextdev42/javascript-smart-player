@@ -31,6 +31,7 @@ let pausedAt = 0;
 let animationFrame;
 let shuffle = false;
 let repeat = false;
+let sortableInstance = null;
 
 // Current playing sources (for crossfade)
 let playingSources = [];
@@ -42,42 +43,65 @@ fileInput.addEventListener('change', e => {
     const li = document.createElement('li');
     li.textContent = `🎵 ${file.name.replace('.mp3', '')}`;
     li.file = file;
+    li.draggable = true;
     playlist.appendChild(li);
   }
   
-  // Reinitialize sortable after adding files
-  initializeSortable();
+  // Initialize sortable after adding files
+  setTimeout(initializeSortable, 100);
 });
 
 // Initialize sortable playlist
 function initializeSortable() {
-  if (window.Sortable && playlist) {
-    new Sortable(playlist, {
-      animation: 150,
-      ghostClass: 'sortable-ghost',
-      chosenClass: 'sortable-chosen',
-      dragClass: 'sortable-drag',
-      onStart: function(evt) {
-        evt.item.style.opacity = '0.5';
-      },
-      onEnd: function(evt) {
-        evt.item.style.opacity = '1';
-        // Update current index if the currently playing track was moved
-        const playingItem = playlist.querySelector('.playing');
-        if (playingItem) {
-          currentIndex = [...playlist.children].indexOf(playingItem);
+  // Destroy existing instance if it exists
+  if (sortableInstance) {
+    sortableInstance.destroy();
+  }
+  
+  // Check if Sortable is loaded
+  if (typeof Sortable !== 'undefined' && playlist) {
+    try {
+      sortableInstance = Sortable.create(playlist, {
+        animation: 150,
+        ghostClass: 'sortable-ghost',
+        chosenClass: 'sortable-chosen',
+        dragClass: 'sortable-drag',
+        handle: 'li',
+        onStart: function(evt) {
+          evt.item.style.opacity = '0.7';
+          evt.item.style.transform = 'rotate(2deg)';
+        },
+        onEnd: function(evt) {
+          evt.item.style.opacity = '1';
+          evt.item.style.transform = 'none';
+          
+          // Update current index if the currently playing track was moved
+          const playingItem = playlist.querySelector('.playing');
+          if (playingItem) {
+            currentIndex = Array.from(playlist.children).indexOf(playingItem);
+          }
+          
+          console.log('Playlist reordered, current index:', currentIndex);
         }
-      }
-    });
+      });
+      console.log('Sortable initialized successfully');
+    } catch (error) {
+      console.error('Error initializing sortable:', error);
+    }
+  } else {
+    console.log('Sortable not available, retrying...');
+    setTimeout(initializeSortable, 500);
   }
 }
 
-// Initialize sortable when DOM is ready
-document.addEventListener('DOMContentLoaded', initializeSortable);
+// Wait for page load and initialize sortable
+window.addEventListener('load', () => {
+  setTimeout(initializeSortable, 200);
+});
 
 playlist.addEventListener('click', async e => {
   if (e.target.tagName === 'LI') {
-    currentIndex = [...playlist.children].indexOf(e.target);
+    currentIndex = Array.from(playlist.children).indexOf(e.target);
     await playTrack(currentIndex);
   }
 });
@@ -122,7 +146,7 @@ async function loadBuffer(index) {
   return buffer;
 }
 
-function createAudioSource(buffer, startOffset = 0) {
+function createAudioSource(buffer) {
   const source = audioCtx.createBufferSource();
   const gainNode = audioCtx.createGain();
   
@@ -166,6 +190,8 @@ async function playTrack(index, seekPosition = 0) {
     
     spinReels(true);
     
+    console.log(`Playing track ${index}: ${playlist.children[index].textContent}`);
+    
   } catch (error) {
     console.error('Error playing track:', error);
     status.textContent = 'Error loading riddim';
@@ -179,8 +205,12 @@ function stopAllSources() {
     } catch (e) {
       // Source may already be stopped
     }
-    source.disconnect();
-    gainNode.disconnect();
+    try {
+      source.disconnect();
+      gainNode.disconnect();
+    } catch (e) {
+      // May already be disconnected
+    }
   });
   playingSources = [];
   isPlaying = false;
@@ -190,7 +220,7 @@ function stopAllSources() {
 
 function updateUI() {
   const li = playlist.children[currentIndex];
-  [...playlist.children].forEach(li => li.classList.remove('playing'));
+  Array.from(playlist.children).forEach(li => li.classList.remove('playing'));
   if (li) li.classList.add('playing');
   trackInfo.textContent = li ? `♫ ${li.file.name.replace('.mp3', '')} ♫` : 'Select your riddim...';
   if (animationFrame) cancelAnimationFrame(animationFrame);
@@ -213,7 +243,10 @@ function updateProgress() {
       duration - elapsed <= crossfadeDuration && 
       isPlaying && 
       !crossfadeInProgress &&
-      elapsed > 1) { // Prevent immediate crossfade
+      elapsed > 2 && // Prevent immediate crossfade
+      playlist.children.length > 1) { // Need at least 2 tracks
+    
+    console.log(`Triggering crossfade: ${crossfadeDuration}s remaining`);
     crossfadeInProgress = true;
     nextTrack(true);
   }
@@ -236,6 +269,8 @@ function equalPowerCrossfade(position) {
 
 async function performCrossfade(nextIndex, crossfadeDuration) {
   try {
+    console.log(`Starting crossfade to track ${nextIndex} (${crossfadeDuration}s)`);
+    
     // Load next track buffer
     const nextBuffer = await loadBuffer(nextIndex);
     const { source: nextSource, gainNode: nextGainNode } = createAudioSource(nextBuffer);
@@ -244,23 +279,15 @@ async function performCrossfade(nextIndex, crossfadeDuration) {
     const currentGainNode = playingSources[0].gainNode;
     
     // Set initial gain values
+    currentGainNode.gain.cancelScheduledValues(now);
+    nextGainNode.gain.cancelScheduledValues(now);
+    
     currentGainNode.gain.setValueAtTime(1, now);
     nextGainNode.gain.setValueAtTime(0, now);
     
-    // Use equal power crossfade curves
-    const steps = 20;
-    const stepDuration = crossfadeDuration / steps;
-    
-    for (let i = 0; i <= steps; i++) {
-      const time = now + (i * stepDuration);
-      const position = i / steps;
-      
-      const fadeOutGain = equalPowerCrossfade(position);
-      const fadeInGain = equalPowerCrossfade(1 - position);
-      
-      currentGainNode.gain.linearRampToValueAtTime(fadeOutGain, time);
-      nextGainNode.gain.linearRampToValueAtTime(fadeInGain, time);
-    }
+    // Linear crossfade (simpler and more reliable)
+    currentGainNode.gain.linearRampToValueAtTime(0, now + crossfadeDuration);
+    nextGainNode.gain.linearRampToValueAtTime(1, now + crossfadeDuration);
     
     // Start the next track
     nextSource.start(0, 0);
@@ -268,27 +295,29 @@ async function performCrossfade(nextIndex, crossfadeDuration) {
     // Add new source to playing sources
     playingSources.push({ source: nextSource, gainNode: nextGainNode });
     
-    // Clean up old source after crossfade
-    setTimeout(() => {
-      try {
-        playingSources[0].source.stop();
-      } catch (e) {
-        // Already stopped
-      }
-      playingSources[0].source.disconnect();
-      playingSources[0].gainNode.disconnect();
-      playingSources.shift(); // Remove first source
-    }, crossfadeDuration * 1000);
-    
-    // Update timing for new track
-    startTime = audioCtx.currentTime;
-    
     // Set up ended handler for new track
     nextSource.onended = () => {
       if (isPlaying && !crossfadeInProgress) {
         nextTrack(true);
       }
     };
+    
+    // Clean up old source after crossfade
+    setTimeout(() => {
+      try {
+        if (playingSources.length > 1) {
+          const oldSource = playingSources.shift();
+          oldSource.source.stop();
+          oldSource.source.disconnect();
+          oldSource.gainNode.disconnect();
+        }
+      } catch (e) {
+        console.log('Cleanup error (normal):', e.message);
+      }
+    }, (crossfadeDuration + 0.1) * 1000);
+    
+    // Update timing for new track
+    startTime = audioCtx.currentTime;
     
     status.textContent = `🌊 Dubbing transition (${crossfadeDuration}s) 🌊`;
     setTimeout(() => {
@@ -415,11 +444,11 @@ function spinReels(on) {
   if (on) {
     leftReel.classList.add('spinning');
     rightReel.classList.add('spinning');
-    tapeAnimation.style.animationPlayState = 'running';
+    if (tapeAnimation) tapeAnimation.style.animationPlayState = 'running';
   } else {
     leftReel.classList.remove('spinning');
     rightReel.classList.remove('spinning');
-    tapeAnimation.style.animationPlayState = 'paused';
+    if (tapeAnimation) tapeAnimation.style.animationPlayState = 'paused';
   }
 }
 
@@ -469,11 +498,14 @@ document.addEventListener('keydown', e => {
   }
 });
 
-// --- Initialize tape animation ---
-tapeAnimation.style.animationPlayState = 'paused';
+// --- Initialize ---
+if (tapeAnimation) {
+  tapeAnimation.style.animationPlayState = 'paused';
+}
 
-// --- Welcome message ---
 status.textContent = '🎵 Ready to drop some dub riddims! 🎵';
 setTimeout(() => {
   status.textContent = '';
 }, 3000);
+
+console.log('DubMaster player initialized');
